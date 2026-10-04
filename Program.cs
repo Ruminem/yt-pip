@@ -442,7 +442,14 @@ sealed class PipForm : Form
     {
         listOpen = !listOpen;
         if (listOpen) ShowList();
-        else if (list.Visible) { list.Visible = false; Width -= list.Width; }
+        else if (list.Visible)
+        {
+            // one layout after both, or the video gets the whole wide window for a moment (jumps right and back)
+            SuspendLayout();
+            list.Visible = false;
+            Width -= list.Width;
+            ResumeLayout();
+        }
         SendMenuState();
     }
 
@@ -453,8 +460,10 @@ sealed class PipForm : Form
         // On the way back from Music the window is PIP before the page is: the fullscreen that follows opens it.
         if (mode != Mode.Pip || !listOpen || list.Visible || web.Source?.Host == "music.youtube.com") return;
         list.Width = Math.Max(LogicalToDeviceUnits(360), ClientSize.Width * 3 / 5);
+        SuspendLayout();  // as in ToggleList: else the video shrinks to what the panel leaves of the old width first
         list.Visible = true;
         Width += list.Width;
+        ResumeLayout();
         var wa = Screen.FromControl(this).WorkingArea;
         if (Right > wa.Right) Left = Math.Max(wa.Left, wa.Right - Width);
         _ = InitListAsync();
