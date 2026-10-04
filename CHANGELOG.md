@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.1 — 2026-10-05
+
+- Three buttons in the player's own controls, left of subtitles and settings: watch list (in the PIP), YouTube Music switch, and always on top.
+- Opening or closing the watch list no longer makes the video jump sideways for a moment.
+
+**한국어**
+
+- 플레이어 컨트롤 바의 자막·설정 왼쪽에 버튼 셋을 넣었음: 볼 목록(PIP 에서), YouTube Music 전환, 항상 위에 표시
+- 볼 목록을 열고 닫을 때 영상이 잠깐 옆으로 튀었다 돌아오던 것을 고쳤음
+
 ## 0.1.0 — 2026-10-05
 
 - First release: one `yt-pip.exe`, no install and no .NET needed (WebView2 comes with Windows 11).
