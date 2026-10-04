@@ -7,6 +7,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>yt-pip</AssemblyName>
+    <!-- Release exe (one self-contained file, about 50 MB):
+         dotnet publish -c Release -r win-x64 -p:SelfContained=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+           -p:EnableCompressionInSingleFile=true -p:DebugType=none -p:GenerateDocumentationFile=false -o <dir> -->
     <Version>0.1.0</Version>
     <RootNamespace>YtPip</RootNamespace>
     <ApplicationIcon>app.ico</ApplicationIcon>
