@@ -94,12 +94,39 @@ sealed class PipForm : Form
         """;
 
     // Menu button at the left edge while paused in PIP; in YouTube Music a "back to YouTube" button in its top bar. The host posts
-    // {mode: 'pip'|'music'|'none', list} on every change; picks go back as 'menu:music' / 'menu:list'.
+    // {mode: 'pip'|'music'|'none', list, onTop} on every change; picks go back as 'menu:music' / 'menu:list' / 'menu:ontop'.
     const string MenuJs = """
         (() => {
           const isMusic = location.host === 'music.youtube.com';
-          let state = { mode: 'none', list: false }, host, menu, musicItem, listItem;
+          let state = { mode: 'none', list: false, onTop: false }, host, menu, musicItem, listItem, ctls;
+          // The host's picks in the player's own controls, before autoplay/subtitles/settings (the left-edge menu shows only
+          // while paused): 볼 목록 (PIP only), YouTube Music, 항상 위. Icons drawn here, each a set of path outlines.
+          const ctlButton = (cmd, ...ds) => {
+            const b = Object.assign(document.createElement('button'), { className: 'ytp-button',
+              onclick: e => { e.stopPropagation(); chrome.webview.postMessage('menu:' + cmd); } });
+            b.style.cssText = 'align-items:center;justify-content:center';
+            const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+            for (const [k, v] of [['width', 24], ['height', 24], ['viewBox', '0 0 24 24'], ['fill', 'none'], ['stroke', '#fff'], ['stroke-width', 2], ['stroke-linejoin', 'round']]) svg.setAttribute(k, v);
+            for (const d of ds) { const p = document.createElementNS(ns, 'path'); p.setAttribute('d', d); svg.append(p); }
+            b.append(svg);
+            return b;
+          };
           const update = () => {
+            const group = !isMusic && document.querySelector('#movie_player .ytp-right-controls-left');
+            if (group && !ctls) ctls = [
+              ctlButton('list', 'M4 5h16v14H4zM14 5v14'),                                               // a window with a panel on its right
+              ctlButton('music', 'M10 17V5l9-2v12', 'M10 17a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0', 'M19 15a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0'),  // a note pair
+              ctlButton('ontop', 'M4 14V4h11v4', 'M9 9h11v11H9z')];                                    // a window over another
+            if (group && ctls[0].parentNode !== group) group.prepend(...ctls);
+            if (ctls) {
+              const [list, music, onTop] = ctls;
+              list.style.display = state.mode === 'pip' ? 'inline-flex' : 'none';
+              list.title = state.list ? '볼 목록 닫기' : '볼 목록 열기';
+              music.title = 'YouTube Music으로 전환';
+              onTop.title = state.onTop ? '항상 위에 표시 끄기' : '항상 위에 표시';
+              onTop.querySelectorAll('path')[1].setAttribute('fill', state.onTop ? 'rgba(255,255,255,.45)' : 'none');  // filled while on
+              for (const b of ctls) b.setAttribute('aria-label', b.title);
+            }
             if (!host) return;
             const v = document.querySelector('#movie_player video') || document.querySelector('video');
             // in Music always: there it is the only way back besides the title bar menu
@@ -325,6 +352,7 @@ sealed class PipForm : Form
                 case "drag": if (pip) StartDrag(); return;
                 case "menu:list": ToggleList(); return;
                 case "menu:music": await ToggleMusicAsync(); return;
+                case "menu:ontop": ToggleOnTop(); return;
             }
             playing = msg == "playing";
             if (pip) ApplyFrame();
@@ -400,7 +428,14 @@ sealed class PipForm : Form
     void SendMenuState()
     {
         var m = mode switch { Mode.Pip => "pip", Mode.Music => "music", _ => "none" };
-        web.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new { mode = m, list = listOpen }));
+        web.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new { mode = m, list = listOpen, onTop = state.OnTop }));
+    }
+
+    void ToggleOnTop()
+    {
+        TopMost = state.OnTop = !state.OnTop;
+        state.Save();
+        SendMenuState();
     }
 
     void ToggleList()
@@ -626,8 +661,7 @@ sealed class PipForm : Form
                 _ = ToggleMusicAsync();
                 return;
             case WM_SYSCOMMAND when ((int)m.WParam & 0xFFF0) == IdOnTop:
-                TopMost = state.OnTop = !state.OnTop;
-                state.Save();
+                ToggleOnTop();
                 return;
             case WM_SYSCOMMAND when ((int)m.WParam & 0xFFF0) == IdMonitorFull:
                 monitorFull = !monitorFull;
