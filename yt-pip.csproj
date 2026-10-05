@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>yt-pip</AssemblyName>
     <!-- Release exe (one self-contained file): release.ps1 -->
-    <Version>0.1.4</Version>
+    <Version>0.1.5</Version>
     <RootNamespace>YtPip</RootNamespace>
     <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>

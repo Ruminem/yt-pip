@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.5 — 2026-10-05
+
+- A video picked inside a playlist in the watch list plays on through that playlist in the PIP, and the list shows the playlist (Mixes have no playlist page, so the list stays where it was for those).
+- A back button beside the watch list's close button, shown when there is somewhere to go back to: playlist → search results → home.
+
+**한국어**
+
+- 볼 목록에서 재생목록 안의 영상을 고르면 PIP 가 그 재생목록을 이어서 재생하고, 볼 목록에 그 재생목록이 뜸 (믹스는 재생목록 페이지가 없어서 볼 목록이 그대로 있음)
+- 볼 목록 닫기 버튼 옆에 뒤로 버튼을 넣었음. 돌아갈 곳이 있을 때만 보이고, 재생목록 → 검색 결과 → 홈 순서로 돌아감
+
 ## 0.1.4 — 2026-10-05
 
 - The PIP takes the video's own shape: Shorts play in an upright window instead of a 16:9 one, at the same size and in the same screen corner.
