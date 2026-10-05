@@ -53,6 +53,8 @@ jobs:
         run: |
           $r = 'rclone-v1.75.1-windows-amd64'
           Invoke-WebRequest "https://downloads.rclone.org/v1.75.1/$r.zip" -OutFile "$env:RUNNER_TEMP\rclone.zip"
+          # The SHA256SUMS of the rclone site and of its GitHub release: a swapped zip would run with the Drive token.
+          if ((Get-FileHash "$env:RUNNER_TEMP\rclone.zip").Hash -ne '200eb602c126d82aa38b51e0f6b9ae837473ff99b51278d3f6f837574c494d6e') { throw 'rclone zip hash mismatch.' }
           Expand-Archive "$env:RUNNER_TEMP\rclone.zip" $env:RUNNER_TEMP
           $env:Path = "$env:RUNNER_TEMP\$r;$env:Path"
           # Over the one exe already there, then renamed to this version: the same file, so its link and shortcuts stay.
