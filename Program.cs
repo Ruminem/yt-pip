@@ -574,8 +574,32 @@ sealed class PipForm : Form
             if (msg == "close") { if (listOpen) ToggleList(); }
             else await PlayFromListAsync(msg);
         };
+        // A video opened in the panel some way other than a link click (signed in, 2026-10-05; likely the hover
+        // preview, which signed out never shows): back to the list, the panel's player stopped, and into the PIP.
+        list.CoreWebView2.SourceChanged += async (_, _) =>
+        {
+            var url = list.CoreWebView2.Source;
+            if (!Program.IsWatchUrl(url)) return;
+            Program.Log($"list opened {url}");
+            await list.CoreWebView2.ExecuteScriptAsync(ListBackJs);
+            await PlayFromListAsync(url);
+        };
         list.Source = new Uri("https://www.youtube.com/");
     }
+
+    // Back once the watch page is up: going back while it is still opening is lost (the panel's first video,
+    // 2026-10-05). stopVideo, not pause: the hidden miniplayer plays a paused video on after going back.
+    const string ListBackJs = """
+        (() => {
+          const stop = () => document.querySelector('#movie_player')?.stopVideo?.();
+          let n = 0;
+          const t = setInterval(() => {
+            stop();
+            if (location.pathname === '/watch' && document.querySelector('ytd-watch-flexy:not([hidden])')) { clearInterval(t); history.back(); setTimeout(stop, 500); }
+            else if (++n >= 50) clearInterval(t);
+          }, 100);
+        })()
+        """;
 
     // YouTube's own in-page navigation, as when the next video starts in fullscreen: the player stays
     // fullscreen (0.2-0.4 s, measured 2026-10-05). A reload takes 5 s and the fullscreen retry.
