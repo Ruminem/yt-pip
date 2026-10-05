@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.10 — 2026-10-05
+
+- Letting go of the time bar in the PIP is no longer missed. YouTube pauses the video while the bar is held, and the PIP used to bring its title bar back for that pause, changing the window under the held button; the frame now stays as it is until the bar is let go.
+
+**한국어**
+
+- PIP 에서 시간축을 놓은 것을 더는 놓치지 않음. 시간축을 잡고 있는 동안 유튜브가 영상을 멈추는데, 그때마다 PIP 가 제목 표시줄을 다시 꺼내 누른 채인 버튼 밑에서 창이 바뀌었음. 이제 시간축을 놓을 때까지 창 틀이 그대로임.
+
 ## 0.1.9 — 2026-10-05
 
 - Letting go of the time bar in the PIP seeks there at once. Before, pulling up a little while dragging opened YouTube's fine scrubbing, which stayed after letting go and waited for another click.
