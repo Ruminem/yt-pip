@@ -364,7 +364,7 @@ sealed class PipForm : Form
     bool pip => mode == Mode.Pip;
     bool playing;
     bool monitorFull;  // fullscreen fills the monitor like the web player instead of going PIP; off every launch
-    string? lastVideo;  // auto-PIP only when a different video starts
+    string? lastVideo;  // auto-PIP only when a different video starts, or the same one again after leaving its page
     readonly System.Windows.Forms.Timer dragTimer = new() { Interval = 10 };
     Size dragOffset;
     bool retrying;
@@ -439,7 +439,10 @@ sealed class PipForm : Form
         core.SourceChanged += async (_, _) =>
         {
             var id = Program.VideoId(core.Source);
-            if (id == null || id == lastVideo) return;
+            // Off the watch page (back to the home page, say): coming back to the same video, forward, is PIP again.
+            // Staying on it out of fullscreen (Esc) changes no address, so that stays as it is.
+            if (id == null) { lastVideo = null; return; }
+            if (id == lastVideo) return;
             lastVideo = id;
             Program.Log($"new video {id} pip={pip}");
             if (mode == Mode.Browse && !monitorFull)
