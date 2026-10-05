@@ -2,8 +2,8 @@
 # self-contained exe (about 50 MB) to Google Drive as Apps/yt-pip/yt-pip-<Version>.exe, then the GitHub release v<Version>
 # with that version's CHANGELOG entry. Bump the version and add the CHANGELOG entry in one commit, then push.
 # Drive goes first so that a failed run can just be run again (Actions → Release → Run workflow): until the tag exists it redoes it all.
-# Secret RCLONE_CONFIG_GDRIVE_TOKEN: the token line of the local rclone remote "gdrive" (drive.file, rclone's own client id:
-# it only sees the files that client made, so the token has to be that one).
+# Secrets RCLONE_CONFIG_GDRIVE_TOKEN / _CLIENT_ID / _CLIENT_SECRET: token, client_id and client_secret of the local rclone
+# remote "gdrive" (scope drive, our own Google Cloud client — the token only works with the client it was made for).
 name: Release
 on:
   push:
@@ -46,7 +46,9 @@ jobs:
       - if: steps.v.outputs.new
         env:
           RCLONE_CONFIG_GDRIVE_TYPE: drive
-          RCLONE_CONFIG_GDRIVE_SCOPE: drive.file
+          RCLONE_CONFIG_GDRIVE_SCOPE: drive
+          RCLONE_CONFIG_GDRIVE_CLIENT_ID: ${{ secrets.RCLONE_CONFIG_GDRIVE_CLIENT_ID }}
+          RCLONE_CONFIG_GDRIVE_CLIENT_SECRET: ${{ secrets.RCLONE_CONFIG_GDRIVE_CLIENT_SECRET }}
           RCLONE_CONFIG_GDRIVE_TOKEN: ${{ secrets.RCLONE_CONFIG_GDRIVE_TOKEN }}
         run: |
           $r = 'rclone-v1.75.1-windows-amd64'
