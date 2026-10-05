@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.3 — 2026-10-05
+
+- The very first video on a new install now goes into the PIP. YouTube reloads that first page, which used to stop the app at an error dialog.
+- An unexpected error is written to the log instead of stopping the app at a dialog.
+
+**한국어**
+
+- 처음 설치한 뒤 첫 영상도 PIP 로 들어감. YouTube 가 그 첫 페이지를 한 번 다시 불러오는데, 그때 앱이 에러 창에서 멈추던 것을 고쳤음
+- 예상 못 한 오류는 에러 창으로 앱을 멈추지 않고 로그에 남김
+
 ## 0.1.2 — 2026-10-05
 
 - The watch list loads in the background once the PIP is up, so its first open takes about 0.7 s instead of 2.4 s.
