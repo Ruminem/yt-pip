@@ -1,5 +1,5 @@
 # Release: the single self-contained exe (about 50 MB), tag v<Version>, the GitHub release with that version's
-# CHANGELOG entry, and the same exe over yt-pip/yt-pip.exe in Google Drive (rclone remote "gdrive"; overwriting keeps
+# CHANGELOG entry, and the same exe over Apps/yt-pip/yt-pip.exe in Google Drive (rclone remote "gdrive"; overwriting keeps
 # the file and so its share link). Bump <Version> in yt-pip.csproj and add the CHANGELOG entry, commit, then run this.
 # Native commands are checked by exit code: with $ErrorActionPreference = 'Stop', PowerShell 5.1 stops at git's progress on stderr.
 Set-Location $PSScriptRoot
@@ -23,6 +23,6 @@ if ($LASTEXITCODE) { throw 'Push failed.' }
 gh release create "v$v" --title "YouTube PIP $v" --notes-file $nf $exe LICENSE THIRD_PARTY_NOTICES.md
 if ($LASTEXITCODE) { throw 'Release failed.' }
 
-rclone copyto $exe gdrive:yt-pip/yt-pip.exe
+rclone copyto $exe gdrive:Apps/yt-pip/yt-pip.exe
 if ($LASTEXITCODE) { throw 'Drive upload failed (the GitHub release is out).' }
-"released v${v}: $exe, Drive link $(rclone link gdrive:yt-pip/yt-pip.exe)"
+"released v${v}: $exe, Drive link $(rclone link gdrive:Apps/yt-pip/yt-pip.exe)"
