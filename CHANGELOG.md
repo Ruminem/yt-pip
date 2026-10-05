@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.4 — 2026-10-05
+
+- The PIP takes the video's own shape: Shorts play in an upright window instead of a 16:9 one, at the same size and in the same screen corner.
+- Dragging the PIP no longer turns on 2x speed; holding the video down without moving still does.
+- Captions start off on every video, even after they were turned on for an earlier one.
+- In the watch list, the arrow left of the search box now goes back from the search results instead of only closing the box.
+
+**한국어**
+
+- PIP 가 영상 모양을 따라감: 쇼츠는 16:9 창 대신 세로 창으로 재생되고, 크기와 화면 모서리 위치는 그대로임
+- PIP 를 드래그해도 2배속이 켜지지 않음. 움직이지 않고 길게 누르면 그대로 2배속이 됨
+- 앞 영상에서 자막을 켰더라도 영상마다 자막이 꺼진 채로 시작함
+- 볼 목록에서 검색창 왼쪽 화살표를 누르면 검색창만 닫히던 것을, 검색 결과에서 이전 페이지로 돌아가게 고쳤음
+
 ## 0.1.3 — 2026-10-05
 
 - The very first video on a new install now goes into the PIP. YouTube reloads that first page, which used to stop the app at an error dialog.
