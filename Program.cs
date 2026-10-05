@@ -62,9 +62,18 @@ sealed class PipForm : Form
 
     // Tells the host when the main player plays or stops (media events do not bubble; capture does).
     const string PlayStateJs = """
+        // Not while the time bar is held: YouTube pauses then, and the title bar coming back would change the window
+        // under the held button (the release then went missing, 2026-10-05). Told on letting go if it stays paused.
+        let onBar = false;
+        addEventListener('pointerdown', e => onBar = !!e.target.closest?.('#movie_player .ytp-progress-bar-container'), true);
+        addEventListener('pointerup', () => {
+          if (!onBar) return;
+          onBar = false;
+          setTimeout(() => { if (document.querySelector('#movie_player video')?.paused) chrome.webview.postMessage('paused'); }, 300);
+        }, true);
         for (const [ev, msg] of [['playing', 'playing'], ['pause', 'paused'], ['ended', 'paused']])
           document.addEventListener(ev, e => {
-            if (e.target.closest && e.target.closest('#movie_player')) chrome.webview.postMessage(msg);
+            if (e.target.closest && e.target.closest('#movie_player') && !(onBar && msg === 'paused')) chrome.webview.postMessage(msg);
           }, true);
         // The main video's size, so the PIP takes its shape (Shorts are 9:16). Not an ad's: 'playing' after it sends the video's again.
         let ratio = '';
