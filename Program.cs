@@ -8,8 +8,9 @@ namespace YtPip;
 
 static class Program
 {
-    public static readonly string DataDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "yt-pip");
+    // YTPIP_DATA: another folder (profile, window.txt, log) for a test copy, so it runs beside the one in use.
+    public static readonly string DataDir = Environment.GetEnvironmentVariable("YTPIP_DATA") is { Length: > 0 } d ? d
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "yt-pip");
 
     [STAThread]
     static int Main(string[] args)
