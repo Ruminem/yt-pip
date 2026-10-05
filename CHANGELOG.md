@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.9 — 2026-10-05
+
+- Letting go of the time bar in the PIP seeks there at once. Before, pulling up a little while dragging opened YouTube's fine scrubbing, which stayed after letting go and waited for another click.
+- A video opened in the watch list some other way than its link (signed in, likely the preview that plays on a thumbnail) plays in the PIP too, instead of in the list; the list goes back to where it was.
+
+**한국어**
+
+- PIP 에서 시간축을 놓으면 바로 그 자리로 이동함. 전에는 끌다가 조금 위로 당기면 유튜브의 세밀 탐색이 켜져, 손을 떼도 남아서 한 번 더 클릭해야 했음.
+- 볼 목록에서 링크가 아닌 길로 연 영상(로그인 상태, 썸네일 위에서 도는 미리보기로 보임)도 목록 안이 아니라 PIP 에서 틀어지고, 목록은 보던 자리로 돌아감.
+
 ## 0.1.8 — 2026-10-05
 
 - No change in the app: this is the first release built and uploaded by GitHub Actions.
