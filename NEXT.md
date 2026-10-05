@@ -1,5 +1,5 @@
 - 여기까지 됨 (2026-10-05 — 0.1.12, 설치본 교체·사용자 확인): 앱 변경 없이 0.1.12 를 내어 자체 client 업로드를 확인(공용 client id 경고 0줄, 드라이브 ID 그대로). release.yml 이 받은 rclone zip 의 SHA256 을 rclone 사이트·GitHub 릴리스 SHA256SUMS 값과 맞춰 보고 다르면 멈춤(4b103e0, playroom 2ac658a) — rclone 버전을 올리면 URL 과 해시를 같이 바꿈. 두 저장소 모두 private, 비밀값은 release.yml 만 씀
-- 다음 할 것: 다음 릴리스에서 해시 검사가 통과하는지 보기. scope drive 는 드라이브 전체 권한이라, 좁히려면 drive.file 로 새 client 가 exe 를 새로 올려야 하고 링크가 한 번 바뀜 — 정하지 않았음 (직접). 실기기 확인 셋은 아래 그대로. 토큰은 반년 안 쓰면 끊김 — 그때 PC 에서 rclone config reconnect gdrive: 뒤 TOKEN 비밀값만 다시 넣기
+- 다음 할 것: 해시 검사는 같은 줄인 playroom 0.2.8 CI 에서 통과함(yt-pip 은 다음 릴리스에서 처음 돎). scope drive 는 드라이브 전체 권한이라, 좁히려면 drive.file 로 새 client 가 exe 를 새로 올려야 하고 링크가 한 번 바뀜 — 정하지 않았음 (직접). 실기기 확인 셋은 아래 그대로. 토큰은 반년 안 쓰면 끊김 — 그때 PC 에서 rclone config reconnect gdrive: 뒤 TOKEN 비밀값만 다시 넣기
 - 막힌 것: 없음
 
 - 여기까지 됨 (2026-10-05 — rclone 자체 client id): 구글 클라우드에 rclone-ci OAuth client(데스크톱, 앱 게시됨·미인증 — 혼자 쓰니 인증 안 받음)를 만들고 PC rclone 원격 gdrive 를 scope drive 로 다시 인증. yt-pip·playroom 두 저장소에 비밀값 RCLONE_CONFIG_GDRIVE_TOKEN·_CLIENT_ID·_CLIENT_SECRET 을 넣고 release.yml 이 셋과 scope drive 를 씀(23ea068, playroom c73f171). drive 범위라 옛 drive.file 이 만든 파일이 그대로 보여 ID·링크 안 바뀜 — CI 와 같은 환경 변수만으로 Apps/yt-pip·Apps/playroom 을 읽어 확인
