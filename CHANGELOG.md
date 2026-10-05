@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.7 — 2026-10-05
+
+- Going back from the PIP and then forward to the same video turns it into the PIP again, instead of leaving it on the watch page in the big window.
+
+**한국어**
+
+- PIP 에서 뒤로 갔다가 앞으로 가서 같은 영상으로 돌아오면, 큰 창의 시청 페이지에 머물지 않고 다시 PIP 가 됨.
+
 ## 0.1.6 — 2026-10-05
 
 - Picking a video turns the window into the PIP at once, dark until the video is fullscreen in it, instead of showing the watch page in the big window first. The video shows after about 1.5 s instead of 2.4 s.
