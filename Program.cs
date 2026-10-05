@@ -37,13 +37,16 @@ static class Program
     internal static bool IsWatchUrl(string? s) => VideoId(s) != null;
 
     // The v= of a YouTube watch link, else null.
-    internal static string? VideoId(string? s)
+    internal static string? VideoId(string? s) => WatchParam(s, "v");
+
+    // A parameter (v, list, index) of a YouTube watch link, else null.
+    internal static string? WatchParam(string? s, string name)
     {
         if (!Uri.TryCreate(s, UriKind.Absolute, out var u) || u.Scheme != "https"
             || u.Host is not ("www.youtube.com" or "youtube.com" or "m.youtube.com") || u.AbsolutePath != "/watch")
             return null;
         foreach (var part in u.Query.TrimStart('?').Split('&'))
-            if (part.StartsWith("v=") && part.Length > 2) return part[2..];
+            if (part.StartsWith(name + "=") && part.Length > name.Length + 1) return part[(name.Length + 1)..];
         return null;
     }
 }
@@ -225,7 +228,8 @@ sealed class PipForm : Form
         })();
         """;
 
-    // In the list panel: a picked video plays in the PIP instead of opening in the panel.
+    // In the list panel: a picked video plays in the PIP instead of opening in the panel. One picked in a
+    // playlist plays on through it there, and the panel shows that playlist.
     const string ListJs = """
         addEventListener('click', e => {
           const a = e.target.closest && e.target.closest('a[href*="/watch?v="], a[href*="/shorts/"]');
@@ -233,7 +237,11 @@ sealed class PipForm : Form
           e.preventDefault(); e.stopImmediatePropagation();
           const u = new URL(a.href);
           const id = u.pathname.startsWith('/shorts/') ? u.pathname.split('/')[2] : u.searchParams.get('v');
-          if (id) chrome.webview.postMessage('https://www.youtube.com/watch?v=' + id);
+          if (!id) return;
+          const list = u.searchParams.get('list'), index = u.searchParams.get('index');
+          chrome.webview.postMessage('https://www.youtube.com/watch?v=' + id + (list ? '&list=' + list + (index ? '&index=' + index : '') : ''));
+          // not a Mix (RD...): YouTube has no page for those ("볼 수 없는 재생목록 유형", 2026-10-05)
+          if (list && !list.startsWith('RD') && new URLSearchParams(location.search).get('list') !== list) location.assign('/playlist?list=' + list);
         }, true);
         // At this width the search box folds behind an arrow labelled "뒤로" that only closes the box, leaving the
         // results up; on the results page it goes back too (YouTube's own handler still closes the box).
@@ -249,28 +257,33 @@ sealed class PipForm : Form
           const g = document.querySelector('ytd-rich-grid-renderer');
           if (g) g.style.setProperty('--ytd-rich-grid-items-per-row', Math.max(2, Math.floor(innerWidth / 300)), 'important');
         };
-        // A close button before the masthead's menu button (put back if YouTube re-renders the bar).
-        // DOM nodes, not markup: YouTube enforces Trusted Types.
-        let close;
-        const closeButton = () => {
+        // Close and back buttons before the masthead's menu button (put back if YouTube re-renders the bar); back only
+        // when there is somewhere to go back to (a search, a playlist). DOM nodes, not markup: YouTube enforces Trusted Types.
+        const button = (title, d, onclick) => {
+          const b = Object.assign(document.createElement('button'), { title, onclick });
+          b.style.cssText = 'width:40px;height:40px;margin-right:4px;border:0;border-radius:50%;background:none;cursor:pointer;display:grid;place-items:center';
+          b.onmouseenter = () => b.style.background = 'rgba(255,255,255,.1)';
+          b.onmouseleave = () => b.style.background = 'none';
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          for (const [k, v] of [['width', 20], ['height', 20], ['viewBox', '0 0 20 20'], ['fill', 'none'], ['stroke', '#fff'], ['stroke-width', 2], ['stroke-linecap', 'round'], ['stroke-linejoin', 'round']]) svg.setAttribute(k, v);
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', d);
+          svg.append(path);
+          b.append(svg);
+          return b;
+        };
+        const close = button('볼 목록 닫기', 'M4 4l12 12M16 4L4 16', () => chrome.webview.postMessage('close'));
+        const back = button('뒤로', 'M16 10H4M9 5l-5 5 5 5', () => history.back());
+        const bar = () => {
           const start = document.querySelector('ytd-masthead #start');
-          if (!start || close?.parentNode === start) return;
-          if (!close) {
-            close = Object.assign(document.createElement('button'), { title: '볼 목록 닫기', onclick: () => chrome.webview.postMessage('close') });
-            close.style.cssText = 'width:40px;height:40px;margin-right:4px;border:0;border-radius:50%;background:none;cursor:pointer;display:grid;place-items:center';
-            close.onmouseenter = () => close.style.background = 'rgba(255,255,255,.1)';
-            close.onmouseleave = () => close.style.background = 'none';
-            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            for (const [k, v] of [['width', 20], ['height', 20], ['viewBox', '0 0 20 20'], ['stroke', '#fff'], ['stroke-width', 2], ['stroke-linecap', 'round']]) svg.setAttribute(k, v);
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', 'M4 4l12 12M16 4L4 16');
-            svg.append(path);
-            close.append(svg);
-          }
-          start.prepend(close);
+          if (!start) return;
+          if (close.parentNode !== start) { start.prepend(close); close.after(back); }
+          back.style.display = navigation.canGoBack ? 'grid' : 'none';
         };
         addEventListener('resize', columns);
-        setInterval(() => { columns(); closeButton(); }, 1000);
+        setInterval(() => { columns(); bar(); }, 1000);
+        addEventListener('yt-navigate-finish', bar);
+        addEventListener('pageshow', bar);
         """;
 
     // After switching between YouTube and YouTube Music (separate sites, separate saved volume): carry the
@@ -548,10 +561,11 @@ sealed class PipForm : Form
     // fullscreen (0.2-0.4 s, measured 2026-10-05). A reload takes 5 s and the fullscreen retry.
     const string InPageWatchJs = """
         new Promise(done => {
-          const id = $ID;
+          const id = $ID, list = $LIST, index = $INDEX;  // index: the link's, from 1; the endpoint's counts from 0
           document.querySelector('ytd-app').dispatchEvent(new CustomEvent('yt-navigate', { bubbles: true, composed: true, detail: { endpoint: {
-            commandMetadata: { webCommandMetadata: { url: '/watch?v=' + id, webPageType: 'WEB_PAGE_TYPE_WATCH', rootVe: 3832 } },
-            watchEndpoint: { videoId: id } } } }));
+            commandMetadata: { webCommandMetadata: { url: '/watch?v=' + id + (list ? '&list=' + list + (index ? '&index=' + index : '') : ''),
+              webPageType: 'WEB_PAGE_TYPE_WATCH', rootVe: 3832 } },
+            watchEndpoint: list ? { videoId: id, playlistId: list, ...(index && { index: index - 1 }) } : { videoId: id } } } }));
           const t0 = Date.now();
           const i = setInterval(() => {
             if (new URLSearchParams(location.search).get('v') === id) { clearInterval(i); done(!!document.fullscreenElement); }
@@ -563,14 +577,17 @@ sealed class PipForm : Form
     async Task PlayFromListAsync(string? url)
     {
         var id = Program.VideoId(url);
-        if (mode != Mode.Pip || id == null) return;
-        var inPage = await EvalAsync(InPageWatchJs.Replace("$ID", JsonSerializer.Serialize(id)));
-        Program.Log($"from list {id}: in-page {inPage}");
+        if (mode != Mode.Pip || id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[A-Za-z0-9_-]+$")) return;
+        var list = Program.WatchParam(url, "list") is { } l && System.Text.RegularExpressions.Regex.IsMatch(l, "^[A-Za-z0-9_-]+$") ? l : null;
+        int index = int.TryParse(Program.WatchParam(url, "index"), out var i) && i > 0 && list != null ? i : 0;
+        var inPage = await EvalAsync(InPageWatchJs.Replace("$ID", JsonSerializer.Serialize(id))
+            .Replace("$LIST", JsonSerializer.Serialize(list)).Replace("$INDEX", index.ToString()));
+        Program.Log($"from list {id} list={list} index={index}: in-page {inPage}");
         if (inPage?.ValueKind == JsonValueKind.True) return;
         // fallback, if YouTube changes its internals: reload; `retrying` keeps the PIP while it is out of fullscreen
         lastVideo = null;
         retrying = true;
-        web.CoreWebView2.Navigate($"https://www.youtube.com/watch?v={id}");
+        web.CoreWebView2.Navigate($"https://www.youtube.com/watch?v={id}" + (list != null ? $"&list={list}" + (index > 0 ? $"&index={index}" : "") : ""));
     }
 
     // Same video and position, in YouTube Music (a plain small window, no fullscreen there) or back in the YouTube PIP.
@@ -893,6 +910,8 @@ static class SelfTest
         Check(State.TryParseRect($"{wa.X + 10},{wa.Y + 10},500,300", out _), "valid");
 
         Check(Program.VideoId("https://www.youtube.com/watch?v=abc&t=5") == "abc", "watch id");
+        Check(Program.WatchParam("https://www.youtube.com/watch?v=abc&list=PLx&index=3", "list") == "PLx", "watch list");
+        Check(Program.WatchParam("https://www.youtube.com/watch?v=abc&playlist=PLx", "list") == null, "not list");
         Check(Program.VideoId("https://www.youtube.com/watch?list=x&v=abc") == "abc", "id not first");
         Check(Program.VideoId("https://evil.example/watch?v=abc") == null, "other host");
         Check(Program.VideoId("http://www.youtube.com/watch?v=abc") == null, "not https");
