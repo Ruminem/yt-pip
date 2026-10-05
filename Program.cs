@@ -305,31 +305,37 @@ sealed class PipForm : Form
         })
         """;
 
-    // Waits until the video plays, then returns where YouTube's own fullscreen button is; the host
-    // presses it with real mouse input. Fullscreening the player directly makes YouTube drop it again,
-    // and a script b.click() fullscreens <html> without switching the page to its fullscreen layout.
+    // Waits until the video plays, then true; the host presses F, YouTube's own fullscreen key, with real key
+    // input. Fullscreening the player directly makes YouTube drop it again, a script b.click() fullscreens <html>
+    // without switching the page to its fullscreen layout, and in a window the PIP's size the player hides its
+    // fullscreen button (0x0, 2026-10-05).
     const string FullscreenJs = """
         new Promise(done => {
           const t0 = Date.now();
           const t = setInterval(() => {
             const v = document.querySelector('#movie_player video');
-            const b = document.querySelector('#movie_player .ytp-fullscreen-button');
-            if (!v || !b || v.paused || v.currentTime < 0.2) return;
+            if (!v || v.paused || v.currentTime < 0.2) return;
             if (document.fullscreenElement) { clearInterval(t); return done(null); }
-            // On a fresh load a press before the watch page has taken the video (its video-id) gets the broken layout,
-            // and for a moment after that the page is still moving, so the press lands beside the button: wait for both
-            // (2026-10-05, 6/6 broken and 3/3 missed before). After 5 s press anyway.
-            const f = document.querySelector('ytd-watch-flexy');
-            b.scrollIntoView({ block: 'center' });
-            const r = b.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2;
-            const ready = f?.getAttribute('video-id') === new URLSearchParams(location.search).get('v') && b.contains(document.elementFromPoint(x, y));
+            // On a fresh load a press before the watch page has taken the video (its video-id) gets the broken layout
+            // (2026-10-05, 6/6 before). After 5 s press anyway.
+            const ready = document.querySelector('ytd-watch-flexy')?.getAttribute('video-id') === new URLSearchParams(location.search).get('v');
             if (!ready && Date.now() - t0 < 5000) return;
             clearInterval(t);
-            done({ x, y });
+            // F typed into a focused box (search, comment) would be text, not the key
+            if (document.activeElement?.matches('input, textarea, [contenteditable]:not([contenteditable=false])')) document.activeElement.blur();
+            done(true);
           }, 100);
           setTimeout(() => { clearInterval(t); done(null); }, 15000);
         })
         """;
+
+    // While a new video gets to the PIP: the window's colour over the page. It lets the mouse through (and
+    // elementFromPoint looks past it), so the fullscreen button is still found and pressed.
+    const string CoverJs = """
+        document.getElementById('yt-pip-cover') || document.documentElement.append(Object.assign(document.createElement('div'), { id: 'yt-pip-cover',
+          style: 'position:fixed;inset:0;z-index:2147483647;background:#181818;pointer-events:none' }))
+        """;
+    const string UncoverJs = "document.getElementById('yt-pip-cover')?.remove()";
 
     // After the button press: "ok", "broken" (fullscreen without YouTube's fullscreen layout) or "none".
     const string LayoutJs = """
@@ -436,8 +442,19 @@ sealed class PipForm : Form
             if (id == null || id == lastVideo) return;
             lastVideo = id;
             Program.Log($"new video {id} pip={pip}");
+            if (mode == Mode.Browse && !monitorFull)
+            {
+                // Into the PIP's window at once, covered until the video is fullscreen in it. Else the watch page shows in
+                // the big window for the ~2 s the press waits, then the big fullscreen for 0.4 s before the shrink (2026-10-05).
+                retrying = true;  // keeps the PIP while it is not fullscreen yet
+                SetMode(Mode.Pip);
+                await EvalAsync(CoverJs);
+                await EnterFullscreenAsync();
+                if (!core.ContainsFullScreenElement && mode == Mode.Pip) SetMode(Mode.Browse);  // it never got there: the page as it is
+                await EvalAsync(UncoverJs);
+            }
             // `retrying` here: a video picked from the list or the way back from Music, the window is already PIP.
-            if (mode == Mode.Browse && !monitorFull || retrying) await EnterFullscreenAsync();
+            else if (retrying) await EnterFullscreenAsync();
         };
         core.NavigationCompleted += async (_, _) =>
         {
@@ -470,16 +487,16 @@ sealed class PipForm : Form
         var sw = System.Diagnostics.Stopwatch.StartNew();
         for (int attempt = 0; attempt < 3; attempt++)
         {
-            if (await EvalAsync(FullscreenJs) is not { ValueKind: JsonValueKind.Object } at)
+            if (await EvalAsync(FullscreenJs) is not { ValueKind: JsonValueKind.True })
             {
                 // cut short by a reload (not the script's own 15 s wait, not fullscreen already): wait on the new page
                 if (sw.ElapsedMilliseconds < 15000 && !web.CoreWebView2.ContainsFullScreenElement) { await Task.Delay(500); continue; }
                 break;
             }
-            double x = at.GetProperty("x").GetDouble(), y = at.GetProperty("y").GetDouble();
-            foreach (var type in new[] { "mouseMoved", "mousePressed", "mouseReleased" })
-                await web.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.dispatchMouseEvent",
-                    JsonSerializer.Serialize(new { type, x, y, button = type == "mouseMoved" ? "none" : "left", clickCount = 1 }));
+            await web.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.dispatchKeyEvent",
+                """{"type":"keyDown","key":"f","code":"KeyF","windowsVirtualKeyCode":70,"text":"f"}""");
+            await web.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.dispatchKeyEvent",
+                """{"type":"keyUp","key":"f","code":"KeyF","windowsVirtualKeyCode":70}""");
             var layout = await EvalAsync(LayoutJs);
             Program.Log($"fullscreen attempt {attempt}: {layout} at {sw.ElapsedMilliseconds}ms");
             if (layout?.GetString() == "ok") break;
