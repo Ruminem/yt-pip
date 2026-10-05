@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.12 — 2026-10-05
+
+- No change in the app: the release is uploaded to Google Drive with the project's own Google Cloud client instead of rclone's shared one, which is being shut down. The download link stays the same.
+
+**한국어**
+
+- 앱은 바뀐 것 없음. 드라이브 업로드를 곧 끊기는 rclone 공용 client 대신 직접 만든 구글 클라우드 client 로 함. 다운로드 링크는 그대로임.
+
 ## 0.1.11 — 2026-10-05
 
 - The watch list shows where the PIP is in the video it plays: the red bar under its thumbnail follows playback and seeks right away, instead of staying where it was when the list loaded.
