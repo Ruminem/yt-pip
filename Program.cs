@@ -11,6 +11,8 @@ static class Program
     // YTPIP_DATA: another folder (profile, window.txt, log) for a test copy, so it runs beside the one in use.
     public static readonly string DataDir = Environment.GetEnvironmentVariable("YTPIP_DATA") is { Length: > 0 } d ? d
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "yt-pip");
+    // YTPIP_TEST=1: a test copy that stays out of the way: off every screen, not on top, never activated, no taskbar button.
+    internal static readonly bool Test = Environment.GetEnvironmentVariable("YTPIP_TEST") == "1";
 
     [STAThread]
     static int Main(string[] args)
@@ -18,6 +20,8 @@ static class Program
         if (args.Contains("--selftest")) return SelfTest.Run();
         ApplicationConfiguration.Initialize();
         try { File.Delete(Path.Combine(DataDir, "log.txt")); } catch (IOException) { }
+        // An error in an event handler: into the log and carry on, instead of a dialog that stops the app.
+        Application.ThreadException += (_, e) => Log($"unhandled: {e.Exception}");
         // yt-pip.exe <watch url>: open straight into that video.
         Application.Run(new PipForm(args.FirstOrDefault(IsWatchUrl)));
         return 0;
@@ -316,6 +320,7 @@ sealed class PipForm : Form
     bool retrying;
 
     bool TitleHidden => pip && playing;
+    protected override bool ShowWithoutActivation => Program.Test;
 
     public PipForm(string? startUrl)
     {
@@ -327,6 +332,7 @@ sealed class PipForm : Form
         state.Load();
         Bounds = state.BrowseRect;
         TopMost = state.OnTop;
+        ShowInTaskbar = !Program.Test;
         Controls.Add(web);
         Controls.Add(list);  // added after the Fill control so docking gives it the right edge first
         dragTimer.Tick += (_, _) => DragTick();
@@ -408,7 +414,12 @@ sealed class PipForm : Form
         var sw = System.Diagnostics.Stopwatch.StartNew();
         for (int attempt = 0; attempt < 3; attempt++)
         {
-            if (await EvalAsync(FullscreenJs) is not { ValueKind: JsonValueKind.Object } at) break;
+            if (await EvalAsync(FullscreenJs) is not { ValueKind: JsonValueKind.Object } at)
+            {
+                // cut short by a reload (not the script's own 15 s wait, not fullscreen already): wait on the new page
+                if (sw.ElapsedMilliseconds < 15000 && !web.CoreWebView2.ContainsFullScreenElement) { await Task.Delay(500); continue; }
+                break;
+            }
             double x = at.GetProperty("x").GetDouble(), y = at.GetProperty("y").GetDouble();
             foreach (var type in new[] { "mouseMoved", "mousePressed", "mouseReleased" })
                 await web.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.dispatchMouseEvent",
@@ -557,7 +568,10 @@ sealed class PipForm : Form
     async Task<JsonElement?> EvalAsync(string js)
     {
         var args = JsonSerializer.Serialize(new { expression = js, awaitPromise = true, returnByValue = true });
-        var result = await web.CoreWebView2.CallDevToolsProtocolMethodAsync("Runtime.evaluate", args);
+        string result;
+        // The page went away under it (on a fresh profile YouTube reloads the first watch page): no value.
+        try { result = await web.CoreWebView2.CallDevToolsProtocolMethodAsync("Runtime.evaluate", args); }
+        catch (ArgumentException) { Program.Log("eval cut off: page reloaded"); return null; }
         return JsonDocument.Parse(result).RootElement.GetProperty("result").TryGetProperty("value", out var v) ? v.Clone() : null;
     }
 
@@ -734,6 +748,13 @@ sealed class State(string file)
         var wa = Screen.PrimaryScreen!.WorkingArea;
         BrowseRect = new(wa.X + (wa.Width - 1100) / 2, wa.Y + (wa.Height - 750) / 2, 1100, 750);
         PipRect = new(wa.Right - 512 - 24, wa.Bottom - 288 - 24, 512, 288);
+        if (Program.Test)
+        {
+            // left of every screen: ShowList only ever slides a window that runs off the right edge
+            BrowseRect.X = PipRect.X = SystemInformation.VirtualScreen.Left - 3000;
+            OnTop = false;
+            return;
+        }
         try
         {
             var lines = File.ReadAllLines(file);
