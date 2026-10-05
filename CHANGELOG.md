@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.8 — 2026-10-05
+
+- No change in the app: this is the first release built and uploaded by GitHub Actions.
+
+**한국어**
+
+- 앱은 바뀐 것 없음. GitHub Actions 가 빌드하고 올린 첫 릴리스임.
+
 ## 0.1.7 — 2026-10-05
 
 - Going back from the PIP and then forward to the same video turns it into the PIP again, instead of leaving it on the watch page in the big window.
