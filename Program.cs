@@ -124,6 +124,16 @@ sealed class PipForm : Form
             dragging = false; start = null;
             e.stopImmediatePropagation(); e.preventDefault();
           }, true);
+          // Pulling up while dragging the time bar opens YouTube's fine scrubbing, which stays after the button is
+          // let go (the seek follows the pointer) until Esc or another click. The PIP is small enough that the pull
+          // happens by accident, so letting go ends it here: Esc seeks to where it was let go (measured 2026-10-05).
+          addEventListener('mouseup', e => {
+            if (e.button !== 0 || !e.isTrusted || !document.fullscreenElement) return;
+            setTimeout(() => {
+              if (document.querySelector('#movie_player.ytp-fine-scrubbing-enable'))
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
+            });
+          }, true);
         })();
         """;
 
