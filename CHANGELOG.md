@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.6 — 2026-10-05
+
+- Picking a video turns the window into the PIP at once, dark until the video is fullscreen in it, instead of showing the watch page in the big window first. The video shows after about 1.5 s instead of 2.4 s.
+
+**한국어**
+
+- 영상을 고르면 큰 창에 시청 페이지를 먼저 보여 주지 않고, 바로 PIP 창이 되어 영상이 전체화면이 될 때까지 어둡게 가려 둠. 영상이 보이기까지 2.4초쯤 걸리던 것이 1.5초쯤으로 줄었음
+
 ## 0.1.5 — 2026-10-05
 
 - A video picked inside a playlist in the watch list plays on through that playlist in the PIP, and the list shows the playlist (Mixes have no playlist page, so the list stays where it was for those).
