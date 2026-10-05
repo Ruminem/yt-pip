@@ -423,6 +423,9 @@ sealed class PipForm : Form
             await Task.Delay(1000);
         }
         retrying = false;
+        // Load the watch list now, after the PIP settled, so it opens at once.
+        // ponytail: ~350 MB more while the PIP is up even if the list never opens; load on first open again if that matters.
+        if (pip) _ = InitListAsync();
     }
 
     void SendMenuState()
@@ -469,9 +472,12 @@ sealed class PipForm : Form
         _ = InitListAsync();
     }
 
-    async Task InitListAsync()
+    // Once: from ShowList, or ahead of it after the PIP's fullscreen (the home page takes ~2 s to load).
+    Task InitListAsync() => listInit ??= InitListCoreAsync();
+    Task? listInit;
+
+    async Task InitListCoreAsync()
     {
-        if (list.CoreWebView2 != null) return;
         await list.EnsureCoreWebView2Async(env);
         await list.CoreWebView2!.AddScriptToExecuteOnDocumentCreatedAsync(ListJs);
         list.CoreWebView2.WebMessageReceived += async (_, e) =>
