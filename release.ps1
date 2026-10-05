@@ -1,6 +1,5 @@
 # Release: the single self-contained exe (about 50 MB), tag v<Version>, the GitHub release with that version's
-# CHANGELOG entry, and the same exe over Apps/yt-pip/yt-pip.exe in Google Drive (rclone remote "gdrive"; overwriting keeps
-# the file and so its share link). Bump <Version> in yt-pip.csproj and add the CHANGELOG entry, commit, then run this.
+# CHANGELOG entry, and the same exe in Google Drive as Apps/yt-pip/yt-pip-<Version>.exe (rclone remote "gdrive"). Bump <Version> in yt-pip.csproj and add the CHANGELOG entry, commit, then run this.
 # Native commands are checked by exit code: with $ErrorActionPreference = 'Stop', PowerShell 5.1 stops at git's progress on stderr.
 Set-Location $PSScriptRoot
 $v = ([xml](Get-Content yt-pip.csproj -Raw)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
@@ -23,6 +22,13 @@ if ($LASTEXITCODE) { throw 'Push failed.' }
 gh release create "v$v" --title "YouTube PIP $v" --notes-file $nf $exe LICENSE THIRD_PARTY_NOTICES.md
 if ($LASTEXITCODE) { throw 'Release failed.' }
 
-rclone copyto $exe gdrive:Apps/yt-pip/yt-pip.exe
+# Over the one exe already there, then renamed to this version: the same file, so its link and shortcuts stay.
+$dir = 'gdrive:Apps/yt-pip'
+$name = "yt-pip-$v.exe"
+$old = rclone lsf $dir --include 'yt-pip*.exe' | Select-Object -First 1
+if (!$old) { $old = $name }
+rclone copyto $exe "$dir/$old"
 if ($LASTEXITCODE) { throw 'Drive upload failed (the GitHub release is out).' }
-"released v${v}: $exe, Drive link $(rclone link gdrive:Apps/yt-pip/yt-pip.exe)"
+if ($old -ne $name) { rclone moveto "$dir/$old" "$dir/$name" }
+if ($LASTEXITCODE) { throw "Drive rename failed (the new exe is up as $old)." }
+"released v${v}: $exe, Drive $name $(rclone link "$dir/$name")"
