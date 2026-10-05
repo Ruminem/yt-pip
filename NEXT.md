@@ -1,5 +1,5 @@
 - 여기까지 됨 (2026-10-05 — rclone 자체 client id): 구글 클라우드에 rclone-ci OAuth client(데스크톱, 앱 게시됨·미인증 — 혼자 쓰니 인증 안 받음)를 만들고 PC rclone 원격 gdrive 를 scope drive 로 다시 인증. yt-pip·playroom 두 저장소에 비밀값 RCLONE_CONFIG_GDRIVE_TOKEN·_CLIENT_ID·_CLIENT_SECRET 을 넣고 release.yml 이 셋과 scope drive 를 씀(23ea068, playroom c73f171). drive 범위라 옛 drive.file 이 만든 파일이 그대로 보여 ID·링크 안 바뀜 — CI 와 같은 환경 변수만으로 Apps/yt-pip·Apps/playroom 을 읽어 확인
-- 다음 할 것: 다음 릴리스 로그에서 공용 client id 경고가 사라지고 드라이브 ID 1pga0jvr3fT-ZqUXyEZnCCWKV1RitmIiE 가 그대로인지 보기. 실기기 확인 셋(Esc 키, Music → YouTube, 목록에서 마우스 뒤로)은 아래 그대로
+- 다음 할 것: playroom 다음 릴리스에서 드라이브 ID 가 그대로인지 보기. yt-pip 은 0.1.12(앱 변경 없음)로 확인됨 — 공용 client id 경고 0줄(0.1.11 은 5줄), ID 1pga0jvr3fT-ZqUXyEZnCCWKV1RitmIiE 그대로. 실기기 확인 셋(Esc 키, Music → YouTube, 목록에서 마우스 뒤로)은 아래 그대로
 - 막힌 것: 없음
 
 - 여기까지 됨 (2026-10-05 — v0.1.8–0.1.11, 사용자가 설치본에서 매번 확인): 릴리스를 release.ps1 대신 GitHub Actions(.github/workflows/release.yml)가 함 — csproj 버전을 올려 푸시하면 빌드·selftest·드라이브 덮어쓰기(같은 ID, 이름은 yt-pip-<버전>.exe)·GitHub 릴리스까지 1분 40초쯤. 0.1.9: 시간축을 위로 당겨 켜진 유튜브 세밀 탐색이 손을 떼도 남던 것을 놓는 순간 Esc 로 끝냄. 볼 목록에서 링크 클릭이 아닌 길로 연 영상(로그인 상태의 썸네일 미리보기로 보임)을 호스트의 SourceChanged 에서 잡아 PIP 로 보내고 패널은 stopVideo 뒤 뒤로 감. 0.1.10: 시간축을 잡는 동안 유튜브가 영상을 멈추면 제목 표시줄이 다시 나와 창 틀이 바뀌었음(안쪽 높이 280→249) — 그동안 일시정지를 호스트에 안 알림. 실제 마우스로는 손 뗀 것을 놓쳤고 CDP 입력으로는 재현이 안 됐음. 0.1.11: PIP 재생 위치를 1% 단위로 패널에 보내 썸네일 빨간 막대를 다시 그리고, 지금 재생 중인 항목에 배경·빨간 테두리를 둘렀음
