@@ -84,6 +84,14 @@ sealed class PipForm : Form
             const r = v.videoWidth + 'x' + v.videoHeight;
             if (r !== ratio) chrome.webview.postMessage('ratio:' + (ratio = r));
           }, true);
+        // Where the video is, for the list panel's thumbnail bars: YouTube draws its own once, when the panel loads.
+        let progress = '';
+        document.addEventListener('timeupdate', e => {
+          const v = e.target, id = new URLSearchParams(location.search).get('v');
+          if (location.host !== 'www.youtube.com' || !id || !v.closest?.('#movie_player') || !v.duration || document.querySelector('#movie_player.ad-showing')) return;
+          const m = 'progress:' + id + ':' + Math.round(v.currentTime / v.duration * 100);
+          if (m !== progress) chrome.webview.postMessage(progress = m);
+        }, true);
         // Product cards over the video ("featured product" is a suggested-action badge in the player script), the Shorts
         // "제품 보기" pill (with its row) and the product panel it opens (2026-10-05).
         document.addEventListener('DOMContentLoaded', () => document.head.append(Object.assign(document.createElement('style'), {
@@ -262,6 +270,29 @@ sealed class PipForm : Form
           // not a Mix (RD...): YouTube has no page for those ("볼 수 없는 재생목록 유형", 2026-10-05)
           if (list && !list.startsWith('RD') && new URLSearchParams(location.search).get('list') !== list) location.assign('/playlist?list=' + list);
         }, true);
+        // The PIP's position on the thumbnails of the videos it played, over YouTube's bar from the page load, and the
+        // one it plays now highlighted (kept through the panel's own navigation: drawn again every second).
+        const watched = new Map();
+        let now = null;
+        chrome.webview.addEventListener('message', e => {
+          const m = /^progress:([\w-]{11}):(\d{1,3})$/.exec(e.data);
+          if (m) { watched.set(now = m[1], Math.min(100, +m[2])); drawWatched(); }
+        });
+        const item = 'yt-lockup-view-model, ytd-rich-item-renderer, ytd-playlist-video-renderer, ytd-video-renderer, ytd-compact-video-renderer';
+        const drawWatched = () => {
+          for (const e of document.querySelectorAll('.yt-pip-now'))
+            if (!e.querySelector(`a[href*="v=${now}"]`)) e.classList.remove('yt-pip-now');
+          if (now) for (const a of document.querySelectorAll(`a[href*="v=${now}"]`)) a.closest(item)?.classList.add('yt-pip-now');
+          for (const [id, p] of watched)
+            for (const a of document.querySelectorAll(`a[href*="v=${id}"]`)) {
+              const host = a.querySelector('yt-thumbnail-view-model') ?? a.closest('ytd-thumbnail');
+              if (!host) continue;
+              let bar = host.querySelector(':scope > .yt-pip-watched');
+              if (!bar) { bar = Object.assign(document.createElement('div'), { className: 'yt-pip-watched' }); bar.append(document.createElement('div')); host.append(bar); }
+              bar.firstChild.style.width = p + '%';
+            }
+        };
+        setInterval(drawWatched, 1000);
         // At this width the search box folds behind an arrow labelled "뒤로" that only closes the box, leaving the
         // results up; on the results page it goes back too (YouTube's own handler still closes the box).
         addEventListener('click', e => {
@@ -270,7 +301,11 @@ sealed class PipForm : Form
         // YouTube's "continue watching" miniplayer would cover the list; at this width the logo runs into
         // the search button, and "만들기" only crowds the bar.
         document.addEventListener('DOMContentLoaded', () => document.head.append(Object.assign(document.createElement('style'), {
-          textContent: 'ytd-miniplayer, ytd-masthead #logo, ytd-masthead #buttons > ytd-button-renderer { display: none !important; }' })));
+          textContent: 'ytd-miniplayer, ytd-masthead #logo, ytd-masthead #buttons > ytd-button-renderer { display: none !important; }'
+            // the bar YouTube draws for a watched video, a red strip along the thumbnail's bottom edge, covered whole
+            + '.yt-pip-watched { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 10; background: #717171; pointer-events: none; }'
+            + '.yt-pip-watched > div { height: 100%; background: #f03; }'
+            + '.yt-pip-now { background: rgba(255, 255, 255, .12); box-shadow: 0 0 0 6px rgba(255, 255, 255, .12); border-radius: 12px; outline: 2px solid #f03; outline-offset: 6px; }' })));
         // At least two columns however narrow the panel; YouTube itself drops to one below ~550px.
         const columns = () => {
           const g = document.querySelector('ytd-rich-grid-renderer');
@@ -430,6 +465,7 @@ sealed class PipForm : Form
                 case "menu:list": ToggleList(); return;
                 case "menu:music": await ToggleMusicAsync(); return;
                 case "menu:ontop": ToggleOnTop(); return;
+                case not null when msg.StartsWith("progress:"): list.CoreWebView2?.PostWebMessageAsString(msg); return;
                 case not null when msg.StartsWith("ratio:"):
                 {
                     var wh = msg[6..].Split('x');
