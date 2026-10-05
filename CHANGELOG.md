@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2 — 2026-10-05
+
+- The watch list loads in the background once the PIP is up, so its first open takes about 0.7 s instead of 2.4 s.
+
+**한국어**
+
+- PIP 가 뜨면 볼 목록을 미리 불러 둬서 처음 열 때 2.4초 걸리던 것이 0.7초쯤으로 줄었음
+
 ## 0.1.1 — 2026-10-05
 
 - Three buttons in the player's own controls, left of subtitles and settings: watch list (in the PIP), YouTube Music switch, and always on top.
