@@ -49,7 +49,7 @@ static class Program
 }
 
 // One window. Browse mode: normal YouTube. PIP mode: YouTube's own fullscreen, which in WebView2
-// fills the window rather than the monitor, in a small 16:9 window. While the video plays in PIP the
+// fills the window rather than the monitor, in a small window of the video's shape. While the video plays in PIP the
 // title bar is cut off (WM_NCCALCSIZE); pausing brings it back so the window can be moved.
 sealed class PipForm : Form
 {
@@ -62,6 +62,15 @@ sealed class PipForm : Form
         for (const [ev, msg] of [['playing', 'playing'], ['pause', 'paused'], ['ended', 'paused']])
           document.addEventListener(ev, e => {
             if (e.target.closest && e.target.closest('#movie_player')) chrome.webview.postMessage(msg);
+          }, true);
+        // The main video's size, so the PIP takes its shape (Shorts are 9:16). Not an ad's: 'playing' after it sends the video's again.
+        let ratio = '';
+        for (const ev of ['loadedmetadata', 'resize', 'playing'])
+          document.addEventListener(ev, e => {
+            const v = e.target;
+            if (!v.closest?.('#movie_player') || !v.videoWidth || document.querySelector('#movie_player.ad-showing')) return;
+            const r = v.videoWidth + 'x' + v.videoHeight;
+            if (r !== ratio) chrome.webview.postMessage('ratio:' + (ratio = r));
           }, true);
         // Product cards over the video ("featured product" is a suggested-action badge in the player script), the Shorts
         // "제품 보기" pill (with its row) and the product panel it opens (2026-10-05).
@@ -226,6 +235,11 @@ sealed class PipForm : Form
           const id = u.pathname.startsWith('/shorts/') ? u.pathname.split('/')[2] : u.searchParams.get('v');
           if (id) chrome.webview.postMessage('https://www.youtube.com/watch?v=' + id);
         }, true);
+        // At this width the search box folds behind an arrow labelled "뒤로" that only closes the box, leaving the
+        // results up; on the results page it goes back too (YouTube's own handler still closes the box).
+        addEventListener('click', e => {
+          if (e.target.closest?.('ytd-masthead #back-button') && location.pathname === '/results' && navigation.canGoBack) history.back();
+        }, true);
         // YouTube's "continue watching" miniplayer would cover the list; at this width the logo runs into
         // the search button, and "만들기" only crowds the bar.
         document.addEventListener('DOMContentLoaded', () => document.head.append(Object.assign(document.createElement('style'), {
@@ -335,6 +349,7 @@ sealed class PipForm : Form
     readonly System.Windows.Forms.Timer dragTimer = new() { Interval = 10 };
     Size dragOffset;
     bool retrying;
+    double aspect = 16.0 / 9;  // width / height of the video playing, from the page
 
     bool TitleHidden => pip && playing;
     protected override bool ShowWithoutActivation => Program.Test;
@@ -377,6 +392,17 @@ sealed class PipForm : Form
                 case "menu:list": ToggleList(); return;
                 case "menu:music": await ToggleMusicAsync(); return;
                 case "menu:ontop": ToggleOnTop(); return;
+                case not null when msg.StartsWith("ratio:"):
+                {
+                    var wh = msg[6..].Split('x');
+                    if (wh.Length != 2 || !int.TryParse(wh[0], out var vw) || !int.TryParse(wh[1], out var vh) || vw <= 0 || vh <= 0) return;
+                    var a = Math.Clamp((double)vw / vh, 0.4, 2.5);  // whatever the page sends, a shape a window can take
+                    if (a == aspect) return;
+                    aspect = a;
+                    Program.Log($"video ratio {vw}x{vh}");
+                    if (pip) FitAspect();
+                    return;
+                }
             }
             playing = msg == "playing";
             if (pip) ApplyFrame();
@@ -656,7 +682,23 @@ sealed class PipForm : Form
         }
     }
 
-    void FitAspect() => Bounds = LockAspect(Bounds, 8, Chrome);
+    // The test copy sits off every screen and must stay there: no screen to keep it on.
+    void FitAspect() => Bounds = Refit(Bounds, Chrome, aspect,
+        Program.Test ? new Rectangle(Left, Top, 1 << 20, 1 << 20) : Screen.FromControl(this).WorkingArea);
+
+    // The same video area in the new shape (a 512x288 PIP becomes about 288x512 for a Short), kept at the
+    // screen corner it is nearest to and on the screen.
+    internal static Rectangle Refit(Rectangle r, Size chrome, double aspect, Rectangle work)
+    {
+        double area = Math.Max(1, r.Width - chrome.Width) * (double)Math.Max(1, r.Height - chrome.Height);
+        var fit = LockAspect(new Rectangle(0, 0, (int)Math.Round(Math.Sqrt(area * aspect)) + chrome.Width, 0), 8, chrome, aspect);
+        if (fit.Height > work.Height) fit = LockAspect(new Rectangle(0, 0, 0, work.Height), 6, chrome, aspect);
+        int x = r.Left - work.Left <= work.Right - r.Right ? r.Left : r.Right - fit.Width;
+        int y = r.Top - work.Top <= work.Bottom - r.Bottom ? r.Top : r.Bottom - fit.Height;
+        x = Math.Clamp(x, work.Left, Math.Max(work.Left, work.Right - fit.Width));
+        y = Math.Clamp(y, work.Top, Math.Max(work.Top, work.Bottom - fit.Height));
+        return new Rectangle(x, y, fit.Width, fit.Height);
+    }
 
     protected override void OnHandleCreated(EventArgs e)
     {
@@ -686,7 +728,7 @@ sealed class PipForm : Form
             case WM_SIZING when pip:
             {
                 var r = Marshal.PtrToStructure<RECT>(m.LParam);
-                var fixedRect = LockAspect(Rectangle.FromLTRB(r.L, r.T, r.R, r.B), (int)m.WParam, Chrome);
+                var fixedRect = LockAspect(Rectangle.FromLTRB(r.L, r.T, r.R, r.B), (int)m.WParam, Chrome, aspect);
                 Marshal.StructureToPtr(new RECT(fixedRect), m.LParam, false);
                 m.Result = 1;
                 return;
@@ -718,20 +760,21 @@ sealed class PipForm : Form
         base.WndProc(ref m);
     }
 
-    // Keeps the video area at 16:9 while resizing; the edge being dragged decides which side moves.
-    // ponytail: fixed 16:9, vertical videos (Shorts) get letterboxed. Read the video's ratio if that bothers.
-    internal static Rectangle LockAspect(Rectangle r, int edge, Size chrome)
+    // Keeps the video area at the video's shape (width / height) while resizing; the edge being dragged decides which side moves.
+    internal static Rectangle LockAspect(Rectangle r, int edge, Size chrome, double aspect)
     {
+        // the shorter side at least 135 (240x135 at 16:9)
+        int minW = (int)Math.Round(aspect >= 1 ? 135 * aspect : 135), minH = (int)Math.Round(aspect >= 1 ? 135 : 135 / aspect);
         int w, h;
         if (edge is 3 or 6)  // WMSZ_TOP, WMSZ_BOTTOM: height leads
         {
-            h = Math.Max(r.Height, 135 + chrome.Height);
-            w = (h - chrome.Height) * 16 / 9 + chrome.Width;
+            h = Math.Max(r.Height, minH + chrome.Height);
+            w = (int)Math.Round((h - chrome.Height) * aspect) + chrome.Width;
         }
         else
         {
-            w = Math.Max(r.Width, 240 + chrome.Width);
-            h = (w - chrome.Width) * 9 / 16 + chrome.Height;
+            w = Math.Max(r.Width, minW + chrome.Width);
+            h = (int)Math.Round((w - chrome.Width) / aspect) + chrome.Height;
         }
         bool fromLeft = edge is 1 or 4 or 7;  // WMSZ_LEFT, TOPLEFT, BOTTOMLEFT
         bool fromTop = edge is 3 or 4 or 5;   // WMSZ_TOP, TOPLEFT, TOPRIGHT
@@ -816,16 +859,29 @@ static class SelfTest
     {
         var chrome = new Size(16, 8);  // e.g. 8px resize borders left/right/bottom, none on top
         // Dragging the bottom-right corner: width leads, top-left stays.
-        var a = PipForm.LockAspect(new Rectangle(100, 100, 656, 999), 8, chrome);
+        const double wide = 16.0 / 9, tall = 9.0 / 16;
+        var a = PipForm.LockAspect(new Rectangle(100, 100, 656, 999), 8, chrome, wide);
         Check(a == new Rectangle(100, 100, 656, 368), $"bottom-right {a}");
         // Dragging the top-left corner keeps the bottom-right fixed.
-        var b = PipForm.LockAspect(Rectangle.FromLTRB(0, 0, 656, 500), 4, chrome);
+        var b = PipForm.LockAspect(Rectangle.FromLTRB(0, 0, 656, 500), 4, chrome, wide);
         Check(b.Right == 656 && b.Bottom == 500 && b.Height == 368, $"top-left {b}");
         // Dragging the bottom edge: height leads.
-        var c = PipForm.LockAspect(new Rectangle(0, 0, 999, 368), 6, chrome);
+        var c = PipForm.LockAspect(new Rectangle(0, 0, 999, 368), 6, chrome, wide);
         Check(c.Width == 656 && c.Height == 368, $"bottom edge {c}");
-        // Minimum size.
-        Check(PipForm.LockAspect(new Rectangle(0, 0, 10, 10), 8, chrome).Width == 256, "min width");
+        // Minimum size: the shorter side 135 either way round.
+        Check(PipForm.LockAspect(new Rectangle(0, 0, 10, 10), 8, chrome, wide).Width == 256, "min width");
+        Check(PipForm.LockAspect(new Rectangle(0, 0, 10, 10), 8, chrome, tall).Width == 151, "min width, tall");
+
+        // A Short in a PIP at the bottom-right: same area standing up, still in that corner; and back.
+        var work = new Rectangle(0, 0, 1920, 1040);
+        var pip = new Rectangle(1384, 728, 512, 288);
+        var s1 = PipForm.Refit(pip, chrome, tall, work);
+        Check(s1.Right == pip.Right && s1.Bottom == pip.Bottom && s1.Width == 295 && s1.Height == 504, $"to tall {s1}");
+        var s2 = PipForm.Refit(s1, chrome, wide, work);
+        Check(s2.Right == pip.Right && s2.Bottom == pip.Bottom && Math.Abs(s2.Width - pip.Width) <= 2, $"back to wide {s2}");
+        // At the top-left it stays there; too tall for the screen it is cut to the screen's height.
+        var s3 = PipForm.Refit(new Rectangle(10, 10, 1600, 900), chrome, tall, work);
+        Check(s3.X == 10 && s3.Y == 0 && s3.Height == 1040, $"capped {s3}");
 
         using (var s = typeof(PipForm).Assembly.GetManifestResourceStream("app.ico"))
             Check(s != null && new Icon(s, 16, 16).Width == 16, "embedded icon");
