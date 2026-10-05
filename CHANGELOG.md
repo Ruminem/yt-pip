@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.11 — 2026-10-05
+
+- The watch list shows where the PIP is in the video it plays: the red bar under its thumbnail follows playback and seeks right away, instead of staying where it was when the list loaded.
+- The video the PIP plays is highlighted in the watch list.
+
+**한국어**
+
+- 볼 목록이 PIP 에서 보는 영상의 위치를 보여 줌. 썸네일 아래 빨간 막대가 목록을 불러올 때 그대로 남지 않고 재생과 시점 이동을 바로 따라감.
+- 볼 목록에서 PIP 가 지금 틀고 있는 영상이 강조됨.
+
 ## 0.1.10 — 2026-10-05
 
 - Letting go of the time bar in the PIP is no longer missed. YouTube pauses the video while the bar is held, and the PIP used to bring its title bar back for that pause, changing the window under the held button; the frame now stays as it is until the bar is let go.
