@@ -70,24 +70,41 @@ sealed class PipForm : Form
             // The fullscreen playlist button narrows the player for the playlist but leaves the panel `hidden` (any window
             // width, 2026-10-05; why is inside YouTube's script). ponytail: shown while the page says it is open.
             + 'ytd-watch-flexy[fullscreen][playlist-panel-expanded] #panels-full-bleed-container > ytd-playlist-panel-renderer[hidden] { display: flex !important; }' })));
+        // Captions start off on every video, whatever YouTube remembers (its own toggle sticks to the next videos).
+        // ponytail: decided in the first 3 s the video plays (ads not counted), so C pressed in those seconds is undone.
+        if (location.host === 'www.youtube.com') {
+          let done = null, cur = null, since = 0;
+          setInterval(() => {
+            const v = document.querySelector('#movie_player video'), id = new URLSearchParams(location.search).get('v');
+            if (!v || !id || id === done || v.paused || document.querySelector('#movie_player.ad-showing')) return;
+            if (id !== cur) { cur = id; since = Date.now(); }
+            const b = document.querySelector('#movie_player .ytp-subtitles-button');
+            if (b?.getAttribute('aria-pressed') === 'true') { b.click(); done = id; }
+            else if (Date.now() - since > 3000) done = id;
+          }, 300);
+        }
         """;
 
     // In PIP, dragging the video (not the controls) asks the host to move the window; the click
     // that ends the drag is swallowed so it does not pause the video.
     const string DragJs = """
         (() => {
-          let start = null, dragging = false;
+          let start = null, dragging = false, pressed = null;
           addEventListener('mousedown', e => {
             start = null; dragging = false;  // a drag that ends off the video sends no click to swallow
             if (e.button !== 0 || !document.fullscreenElement) return;
             if (e.target.closest('.ytp-chrome-bottom,.ytp-chrome-top,.ytp-popup,.ytp-settings-menu,button,a,input,#yt-pip-menu')) return;
             start = { x: e.screenX, y: e.screenY };
+            pressed = e.target;
           }, true);
           addEventListener('mousemove', e => {
             if (!start || dragging) return;
             if (!(e.buttons & 1)) { start = null; return; }
             if (Math.abs(e.screenX - start.x) + Math.abs(e.screenY - start.y) < 6) return;
             dragging = true;
+            // The button stays down while the window follows, which YouTube takes for press-and-hold (2x after ~0.5 s).
+            // A mouseup ends its hold, before or after 2x (pointercancel, mouseleave, blur do not; measured 2026-10-05).
+            pressed.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: e.clientX, clientY: e.clientY }));
             chrome.webview.postMessage('drag');
           }, true);
           addEventListener('click', e => {
