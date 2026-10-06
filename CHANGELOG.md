@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.13 — 2026-10-06
+
+- The watch list opens on whichever side of the PIP the screen has room for: right, else left, below or above, so the PIP stays where it is. Only with no room anywhere does it go right and push the PIP left as before, and closing the list now moves the PIP back to where it was.
+
+**한국어**
+
+- 볼 목록이 PIP 의 오른쪽, 안 되면 왼쪽·아래·위 중 화면에 공간이 남은 쪽에 열려 PIP 가 제자리에 있음. 어디에도 공간이 없을 때만 전처럼 오른쪽에 열며 PIP 를 왼쪽으로 밀고, 이제 목록을 닫으면 PIP 가 원래 자리로 돌아옴.
+
 ## 0.1.12 — 2026-10-05
 
 - No change in the app: the release is uploaded to Google Drive with the project's own Google Cloud client instead of rclone's shared one, which is being shut down. The download link stays the same.
