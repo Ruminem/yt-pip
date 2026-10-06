@@ -408,9 +408,10 @@ sealed class PipForm : Form
         """;
 
     readonly WebView2 web = new() { Dock = DockStyle.Fill };
-    readonly WebView2 list = new() { Dock = DockStyle.Right, Visible = false };  // "볼 목록" beside the PIP
+    readonly WebView2 list = new() { Dock = DockStyle.Right, Visible = false };  // "볼 목록" beside the PIP (side set in ShowList)
     CoreWebView2Environment? env;
     bool listOpen;  // session only, like monitorFull
+    Point listShift;  // how far ShowList slid the video to fit the panel; closing slides it back
     (int t, int vol, bool muted)? pendingRestore;  // applied once the page switched to has its player
     readonly State state = new(Path.Combine(Program.DataDir, "window.txt"));
     readonly string? startUrl;
@@ -590,30 +591,58 @@ sealed class PipForm : Form
         if (listOpen) ShowList();
         else if (list.Visible)
         {
+            var r = PipOnly(Bounds);
+            r.Offset(-listShift.X, -listShift.Y);
+            var wa = Work;
+            r.X = Math.Clamp(r.X, wa.Left, Math.Max(wa.Left, wa.Right - r.Width));
+            listShift = Point.Empty;
             // one layout after both, or the video gets the whole wide window for a moment (jumps right and back)
             SuspendLayout();
             list.Visible = false;
-            Width -= list.Width;
+            Bounds = r;
             ResumeLayout();
         }
         SendMenuState();
     }
 
-    // Widens the PIP by the panel so the video keeps its size; slides left if that leaves the screen.
-    // ponytail: panel width is set when it opens (60% of the video, at least 360); resizing the PIP later keeps it.
+    // Grows the PIP by the panel so the video keeps its size and place, on whichever side the screen has room
+    // (PlaceList); with no room anywhere it goes right and the video slides left, back when the panel closes.
+    // ponytail: panel size is set when it opens (60% of the video's width, at least 360); resizing the PIP later keeps it.
     void ShowList()
     {
         // On the way back from Music the window is PIP before the page is: the fullscreen that follows opens it.
         if (mode != Mode.Pip || !listOpen || list.Visible || web.Source?.Host == "music.youtube.com") return;
-        list.Width = Math.Max(LogicalToDeviceUnits(360), ClientSize.Width * 3 / 5);
-        SuspendLayout();  // as in ToggleList: else the video shrinks to what the panel leaves of the old width first
+        int size = Math.Max(LogicalToDeviceUnits(360), ClientSize.Width * 3 / 5);
+        var (dock, bounds) = PlaceList(Bounds, size, Work);
+        list.Dock = dock;
+        if (dock is DockStyle.Left or DockStyle.Right) list.Width = size; else list.Height = size;
+        var before = Location;
+        SuspendLayout();  // as in ToggleList: else the video shrinks to what the panel leaves of the old size first
         list.Visible = true;
-        Width += list.Width;
+        Bounds = bounds;
         ResumeLayout();
-        var wa = Screen.FromControl(this).WorkingArea;
-        if (Right > wa.Right) Left = Math.Max(wa.Left, wa.Right - Width);
+        listShift = PipOnly(Bounds).Location - (Size)before;
         _ = InitListAsync();
     }
+
+    // Right, left, below, above: the first side the screen has room for the panel on; else right, slid onto the screen.
+    internal static (DockStyle, Rectangle) PlaceList(Rectangle r, int size, Rectangle work)
+    {
+        if (r.Right + size <= work.Right) return (DockStyle.Right, r with { Width = r.Width + size });
+        if (r.Left - size >= work.Left) return (DockStyle.Left, Rectangle.FromLTRB(r.Left - size, r.Top, r.Right, r.Bottom));
+        if (r.Bottom + size <= work.Bottom) return (DockStyle.Bottom, r with { Height = r.Height + size });
+        if (r.Top - size >= work.Top) return (DockStyle.Top, Rectangle.FromLTRB(r.Left, r.Top - size, r.Right, r.Bottom));
+        return (DockStyle.Right, new Rectangle(Math.Max(work.Left, work.Right - r.Width - size), r.Top, r.Width + size, r.Height));
+    }
+
+    // The window without the panel: where the video is.
+    Rectangle PipOnly(Rectangle b) => !list.Visible ? b : list.Dock switch
+    {
+        DockStyle.Left => Rectangle.FromLTRB(b.Left + list.Width, b.Top, b.Right, b.Bottom),
+        DockStyle.Top => Rectangle.FromLTRB(b.Left, b.Top + list.Height, b.Right, b.Bottom),
+        DockStyle.Bottom => b with { Height = b.Height - list.Height },
+        _ => b with { Width = b.Width - list.Width },
+    };
 
     // Once: from ShowList, or ahead of it after the PIP's fullscreen (the home page takes ~2 s to load).
     Task InitListAsync() => listInit ??= InitListCoreAsync();
@@ -752,7 +781,7 @@ sealed class PipForm : Form
 
     void RememberRect()
     {
-        if (mode == Mode.Pip) state.PipRect = list.Visible ? new Rectangle(Left, Top, Width - list.Width, Height) : Bounds;
+        if (mode == Mode.Pip) { var r = PipOnly(Bounds); r.Offset(-listShift.X, -listShift.Y); state.PipRect = r; }
         else if (mode == Mode.Browse) state.BrowseRect = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
     }
 
@@ -763,6 +792,7 @@ sealed class PipForm : Form
         WindowState = FormWindowState.Normal;
         mode = next;
         list.Visible = false;  // the rects below are without the panel; ShowList adds it back in PIP
+        listShift = Point.Empty;
         // Borderless over the whole monitor, so Windows treats it as fullscreen and the taskbar goes behind.
         FormBorderStyle = next == Mode.Monitor ? FormBorderStyle.None : FormBorderStyle.Sizable;
         ApplyFrame();
@@ -794,13 +824,15 @@ sealed class PipForm : Form
         get
         {
             int frame = Width - ClientSize.Width;
-            return new(frame + (list.Visible ? list.Width : 0), frame / 2);
+            bool beside = list.Dock is DockStyle.Left or DockStyle.Right;
+            return new(frame + (list.Visible && beside ? list.Width : 0), frame / 2 + (list.Visible && !beside ? list.Height : 0));
         }
     }
 
+    void FitAspect() => Bounds = Refit(Bounds, Chrome, aspect, Work);
+
     // The test copy sits off every screen and must stay there: no screen to keep it on.
-    void FitAspect() => Bounds = Refit(Bounds, Chrome, aspect,
-        Program.Test ? new Rectangle(Left, Top, 1 << 20, 1 << 20) : Screen.FromControl(this).WorkingArea);
+    Rectangle Work => Program.Test ? new Rectangle(Left, Top, 1 << 20, 1 << 20) : Screen.FromControl(this).WorkingArea;
 
     // The same video area in the new shape (a 512x288 PIP becomes about 288x512 for a Short), kept at the
     // screen corner it is nearest to and on the screen.
@@ -998,6 +1030,13 @@ static class SelfTest
         // At the top-left it stays there; too tall for the screen it is cut to the screen's height.
         var s3 = PipForm.Refit(new Rectangle(10, 10, 1600, 900), chrome, tall, work);
         Check(s3.X == 10 && s3.Y == 0 && s3.Height == 1040, $"capped {s3}");
+
+        // The watch list goes on the first side with room, the video staying put; with none, right and slid left.
+        Check(PipForm.PlaceList(new Rectangle(24, 24, 512, 288), 360, work) == (DockStyle.Right, new Rectangle(24, 24, 872, 288)), "list right");
+        Check(PipForm.PlaceList(pip, 360, work) == (DockStyle.Left, new Rectangle(1024, 728, 872, 288)), "list left");
+        Check(PipForm.PlaceList(new Rectangle(100, 100, 1700, 300), 360, work) == (DockStyle.Bottom, new Rectangle(100, 100, 1700, 660)), "list below");
+        Check(PipForm.PlaceList(new Rectangle(100, 700, 1700, 300), 360, work) == (DockStyle.Top, new Rectangle(100, 340, 1700, 660)), "list above");
+        Check(PipForm.PlaceList(new Rectangle(100, 200, 1700, 700), 360, work) == (DockStyle.Right, new Rectangle(0, 200, 2060, 700)), "list slid");
 
         using (var s = typeof(PipForm).Assembly.GetManifestResourceStream("app.ico"))
             Check(s != null && new Icon(s, 16, 16).Width == 16, "embedded icon");
