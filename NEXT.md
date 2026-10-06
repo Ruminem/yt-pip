@@ -1,3 +1,7 @@
+- 여기까지 됨 (2026-10-06 — 0.1.13, 개발 빌드로 사용자 확인·설치본 교체): 볼 목록을 PIP 의 오른쪽 → 왼쪽 → 아래 → 위 중 화면(작업 영역)에 패널이 들어가는 첫 쪽에 붙여 영상은 제자리(PlaceList, 위·아래는 높이 = 옆일 때 폭과 같은 값). 어디에도 안 들어가면 전처럼 오른쪽에 붙이고 창을 밀며, 민 거리를 listShift 에 두었다가 닫을 때 되돌림. 패널이 오른쪽이라고 가정하던 곳(PipRect 기억·비율 맞출 때의 Chrome·닫을 때 줄이기)은 PipOnly 로 방향을 따짐. selftest 에 다섯 경우 — 시험 사본은 화면 밖이라 늘 오른쪽이므로 다른 쪽은 selftest 와 개발 빌드로만 봄. rclone 해시 검사도 yt-pip CI 에서 처음 돌아 통과
+- 다음 할 것: 실기기 확인 셋(진짜 Esc 키, Music → YouTube, 볼 목록에서 마우스 뒤로 단추) (직접). 드라이브 범위를 drive.file 로 좁힐지는 아래 그대로 미정
+- 막힌 것: 없음
+
 - 여기까지 됨 (2026-10-05 — 0.1.12, 설치본 교체·사용자 확인): 앱 변경 없이 0.1.12 를 내어 자체 client 업로드를 확인(공용 client id 경고 0줄, 드라이브 ID 그대로). release.yml 이 받은 rclone zip 의 SHA256 을 rclone 사이트·GitHub 릴리스 SHA256SUMS 값과 맞춰 보고 다르면 멈춤(4b103e0, playroom 2ac658a) — rclone 버전을 올리면 URL 과 해시를 같이 바꿈. 두 저장소 모두 private, 비밀값은 release.yml 만 씀
 - 다음 할 것: 해시 검사는 같은 줄인 playroom 0.2.8 CI 에서 통과함(yt-pip 은 다음 릴리스에서 처음 돎). scope drive 는 드라이브 전체 권한이라, 좁히려면 drive.file 로 새 client 가 exe 를 새로 올려야 하고 링크가 한 번 바뀜 — 정하지 않았음 (직접). 실기기 확인 셋은 아래 그대로. 토큰은 반년 안 쓰면 끊김 — 그때 PC 에서 rclone config reconnect gdrive: 뒤 TOKEN 비밀값만 다시 넣기
 - 막힌 것: 없음
