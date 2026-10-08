@@ -39,6 +39,11 @@ static class Program
     // The v= of a YouTube watch link, else null.
     internal static string? VideoId(string? s) => WatchParam(s, "v");
 
+    // The id of a YouTube Shorts link (/shorts/ID), else null.
+    internal static string? ShortsId(string? s) =>
+        Uri.TryCreate(s, UriKind.Absolute, out var u) && u.Scheme == "https" && u.Host is "www.youtube.com" or "youtube.com" or "m.youtube.com"
+        && u.AbsolutePath.Split('/') is ["", "shorts", var id] && System.Text.RegularExpressions.Regex.IsMatch(id, "^[A-Za-z0-9_-]+$") ? id : null;
+
     // A parameter (v, list, index) of a YouTube watch link, else null.
     internal static string? WatchParam(string? s, string name)
     {
@@ -73,7 +78,7 @@ sealed class PipForm : Form
         }, true);
         for (const [ev, msg] of [['playing', 'playing'], ['pause', 'paused'], ['ended', 'paused']])
           document.addEventListener(ev, e => {
-            if (e.target.closest && e.target.closest('#movie_player') && !(onBar && msg === 'paused')) chrome.webview.postMessage(msg);
+            if (e.target.closest && e.target.closest('#movie_player, #shorts-player') && !(onBar && msg === 'paused')) chrome.webview.postMessage(msg);
           }, true);
         // The main video's size, so the PIP takes its shape (Shorts are 9:16). Not an ad's: 'playing' after it sends the video's again.
         let ratio = '';
@@ -84,23 +89,12 @@ sealed class PipForm : Form
             const r = v.videoWidth + 'x' + v.videoHeight;
             if (r !== ratio) chrome.webview.postMessage('ratio:' + (ratio = r));
           }, true);
-        // A Short (upright, at most 3 minutes) loops as on YouTube's own Shorts page, instead of autoplay going on to
-        // the next video: it plays here as a watch page. Never an ad's: it would play forever.
+        // A Short opened as a watch page (a /watch link to it) loops as on YouTube's own Shorts page, instead of autoplay
+        // going on to the next video: upright, at most 3 minutes. Never an ad's: it would play forever.
         document.addEventListener('loadedmetadata', e => {
           const v = e.target;
           if (location.host === 'www.youtube.com' && v.closest?.('#movie_player'))
             v.loop = v.videoHeight > v.videoWidth && v.duration <= 181 && !document.querySelector('#movie_player.ad-showing');
-        }, true);
-        // A Short picked anywhere opens as a watch page, so it goes PIP (and loops, above) like any video, instead of
-        // YouTube's Shorts page in the big window. Before YouTube's own navigation: no Shorts page to come back to.
-        addEventListener('click', e => {
-          const a = e.target.closest?.('a[href*="/shorts/"]');
-          const id = a && location.host === 'www.youtube.com' && new URL(a.href).pathname.split('/')[2];
-          if (!/^[\w-]{11}$/.test(id)) return;
-          e.preventDefault(); e.stopImmediatePropagation();
-          document.querySelector('ytd-app').dispatchEvent(new CustomEvent('yt-navigate', { bubbles: true, composed: true, detail: { endpoint: {
-            commandMetadata: { webCommandMetadata: { url: '/watch?v=' + id, webPageType: 'WEB_PAGE_TYPE_WATCH', rootVe: 3832 } },
-            watchEndpoint: { videoId: id } } } }));
         }, true);
         // Where the video is, for the list panel's thumbnail bars: YouTube draws its own once, when the panel loads.
         let progress = '';
@@ -116,7 +110,16 @@ sealed class PipForm : Form
           textContent: '.ytp-suggested-action, .ytp-featured-product, yt-shorts-suggested-action-view-model, .ytReelMetapanelViewModelMetapanelItem:has(> yt-shorts-suggested-action-view-model), ytd-engagement-panel-section-list-renderer[target-id^=shopping_panel] { display: none !important; }'
             // The fullscreen playlist button narrows the player for the playlist but leaves the panel `hidden` (any window
             // width, 2026-10-05; why is inside YouTube's script). ponytail: shown while the page says it is open.
-            + 'ytd-watch-flexy[fullscreen][playlist-panel-expanded] #panels-full-bleed-container > ytd-playlist-panel-renderer[hidden] { display: flex !important; }' })));
+            + 'ytd-watch-flexy[fullscreen][playlist-panel-expanded] #panels-full-bleed-container > ytd-playlist-panel-renderer[hidden] { display: flex !important; }'
+            // The Shorts page in the PIP (MenuJs marks it): the video over the whole window as on a phone, no top bar, the
+            // comments over it. Without this the page is wider than a small PIP and cuts them (288 wide, 2026-10-09).
+            + 'html.yt-pip-shorts #masthead-container, html.yt-pip-shorts #cinematic-shorts-scrim { display: none !important; }'
+            + 'html.yt-pip-shorts ytd-app { --ytd-masthead-height: 0px !important; }'
+            + 'html.yt-pip-shorts #page-manager.ytd-app, html.yt-pip-shorts ytd-shorts, html.yt-pip-shorts ytd-shorts .reel-video-in-sequence-new { margin: 0 !important; }'
+            + 'html.yt-pip-shorts ytd-shorts, html.yt-pip-shorts ytd-shorts * { --ytd-shorts-player-height: 100vh !important; --ytd-shorts-player-width: 100vw !important;'
+            + ' --ytd-shorts-masthead-height: 0px !important; min-width: 0 !important; min-height: 0 !important; }'
+            + 'html.yt-pip-shorts ytd-shorts #anchored-panel { left: 0 !important; right: 0 !important; width: auto !important; }'
+            + 'html.yt-pip-shorts ytd-shorts #anchored-panel > * { width: 100% !important; }' })));
         // Captions start off on every video, whatever YouTube remembers (its own toggle sticks to the next videos).
         // ponytail: decided in the first 3 s the video plays (ads not counted), so C pressed in those seconds is undone.
         if (location.host === 'www.youtube.com') {
@@ -139,7 +142,9 @@ sealed class PipForm : Form
           let start = null, dragging = false, pressed = null;
           addEventListener('mousedown', e => {
             start = null; dragging = false;  // a drag that ends off the video sends no click to swallow
-            if (e.button !== 0 || !document.fullscreenElement) return;
+            // on the Shorts page in the PIP the video itself only: its buttons, title and time bar lie over it
+            const shorts = document.documentElement.classList.contains('yt-pip-shorts');
+            if (e.button !== 0 || !(shorts ? e.target.matches('#shorts-player video') : document.fullscreenElement)) return;
             if (e.target.closest('.ytp-chrome-bottom,.ytp-chrome-top,.ytp-popup,.ytp-settings-menu,button,a,input,#yt-pip-menu')) return;
             start = { x: e.screenX, y: e.screenY };
             pressed = e.target;
@@ -191,6 +196,9 @@ sealed class PipForm : Form
             return b;
           };
           const update = () => {
+            // the Shorts page in the PIP gets its own layout (PlayStateJs's style); YouTube sizes its player on resize
+            const shorts = !isMusic && state.mode === 'pip' && location.pathname.startsWith('/shorts/'), root = document.documentElement;
+            if (shorts !== root.classList.contains('yt-pip-shorts')) { root.classList.toggle('yt-pip-shorts', shorts); dispatchEvent(new Event('resize')); }
             const group = !isMusic && document.querySelector('#movie_player .ytp-right-controls-left');
             if (group && !ctls) ctls = [
               ctlButton('list', 'M4 5h16v14H4zM14 5v14'),                                               // a window with a panel on its right
@@ -207,9 +215,9 @@ sealed class PipForm : Form
               for (const b of ctls) b.setAttribute('aria-label', b.title);
             }
             if (!host) return;
-            const v = document.querySelector('#movie_player video') || document.querySelector('video');
+            const v = document.querySelector(shorts ? '#shorts-player video' : '#movie_player video') || document.querySelector('video');
             // in Music always: there it is the only way back besides the title bar menu
-            const show = isMusic ? state.mode === 'music' : state.mode === 'pip' && v && v.paused && document.fullscreenElement;
+            const show = isMusic ? state.mode === 'music' : state.mode === 'pip' && v && v.paused && (document.fullscreenElement || shorts);
             // in Music it sits in the top bar before the cast/settings icons, so the bar lays it out (put back if re-rendered)
             // (the host keeps the Music window wide enough that its mobile layout never hides the bar)
             const bar = isMusic && document.querySelector('ytmusic-nav-bar #right-content');
@@ -281,7 +289,9 @@ sealed class PipForm : Form
           if (!a) return;
           e.preventDefault(); e.stopImmediatePropagation();
           const u = new URL(a.href);
-          const id = u.pathname.startsWith('/shorts/') ? u.pathname.split('/')[2] : u.searchParams.get('v');
+          // a Short plays on YouTube's Shorts page in the PIP, as one picked in the big window does
+          if (u.pathname.startsWith('/shorts/')) return chrome.webview.postMessage('https://www.youtube.com/shorts/' + u.pathname.split('/')[2]);
+          const id = u.searchParams.get('v');
           if (!id) return;
           const list = u.searchParams.get('list'), index = u.searchParams.get('index');
           chrome.webview.postMessage('https://www.youtube.com/watch?v=' + id + (list ? '&list=' + list + (index ? '&index=' + index : '') : ''));
@@ -443,6 +453,10 @@ sealed class PipForm : Form
     bool retrying;
     double aspect = 16.0 / 9;  // width / height of the video playing, from the page
 
+    bool wasShorts;  // the last address was a Shorts page: moving on to the next Short leaves the window as it is
+    bool OnShorts => Program.ShortsId(web.CoreWebView2?.Source) != null;
+    double Aspect => OnShorts ? 9.0 / 16 : aspect;  // the Shorts page lays its video out 9:16 whatever the video's shape
+
     bool TitleHidden => pip && playing;
     protected override bool ShowWithoutActivation => Program.Test;
 
@@ -504,7 +518,8 @@ sealed class PipForm : Form
         {
             Program.Log($"fullscreen changed: {core.ContainsFullScreenElement}");
             // YouTube Music has no fullscreen; leaving YouTube for it drops fullscreen, which is not "go back to browsing".
-            if (mode == Mode.Music || retrying && !core.ContainsFullScreenElement) return;
+            // Nor is a Short picked from the list: the Shorts page has no fullscreen either.
+            if (mode == Mode.Music || (retrying || OnShorts) && !core.ContainsFullScreenElement) return;
             SetMode(!core.ContainsFullScreenElement ? Mode.Browse : monitorFull ? Mode.Monitor : Mode.Pip);
             ShowList();  // back from Music the window was PIP already, so SetMode did nothing
         };
@@ -512,6 +527,24 @@ sealed class PipForm : Form
         // (not with monitor fullscreen on: then it behaves like the web player).
         core.SourceChanged += async (_, _) =>
         {
+            // YouTube's own Shorts page in the PIP, not fullscreen (it has none): its wheel goes to the next Short, comments
+            // open over the video and it loops. A watch page has none of that (2026-10-09). Next Shorts keep the window.
+            if (Program.ShortsId(core.Source) != null)
+            {
+                lastVideo = null;  // a video after it is new
+                retrying = false;  // from the list: the PIP was kept while the watch page left fullscreen
+                if (!wasShorts && mode == Mode.Browse && !monitorFull) SetMode(Mode.Pip);
+                else if (!wasShorts && pip) FitAspect();  // from a video in the PIP (the list): the Short's shape
+                wasShorts = true;
+                return;
+            }
+            if (wasShorts)
+            {
+                wasShorts = false;
+                // Off the Shorts page the big window, unless a video is next (the list, back): fullscreen in the PIP.
+                if (pip && Program.VideoId(core.Source) == null) SetMode(Mode.Browse);
+                else if (pip) { retrying = true; FitAspect(); }
+            }
             var id = Program.VideoId(core.Source);
             // Off the watch page (back to the home page, say): coming back to the same video, forward, is PIP again.
             // Staying on it out of fullscreen (Esc) changes no address, so that stays as it is.
@@ -720,8 +753,33 @@ sealed class PipForm : Form
         })
         """;
 
+    // The same for a Short (0.3 s from the watch page, measured 2026-10-09); YouTube drops the watch page's fullscreen.
+    const string InPageShortsJs = """
+        new Promise(done => {
+          const id = $ID;
+          document.querySelector('ytd-app').dispatchEvent(new CustomEvent('yt-navigate', { bubbles: true, composed: true, detail: { endpoint: {
+            commandMetadata: { webCommandMetadata: { url: '/shorts/' + id, webPageType: 'WEB_PAGE_TYPE_SHORTS', rootVe: 37414 } },
+            reelWatchEndpoint: { videoId: id } } } }));
+          const t0 = Date.now();
+          const i = setInterval(() => {
+            if (location.pathname === '/shorts/' + id) { clearInterval(i); done(true); }
+            else if (Date.now() - t0 > 3000) { clearInterval(i); done(false); }
+          }, 100);
+        })
+        """;
+
     async Task PlayFromListAsync(string? url)
     {
+        if (Program.ShortsId(url) is { } sid)
+        {
+            if (mode != Mode.Pip) return;
+            retrying = true;  // keeps the PIP while the watch page leaves fullscreen; SourceChanged clears it
+            var r = await EvalAsync(InPageShortsJs.Replace("$ID", JsonSerializer.Serialize(sid)));
+            Program.Log($"from list short {sid}: in-page {r}");
+            if (r?.ValueKind != JsonValueKind.True) web.CoreWebView2.Navigate($"https://www.youtube.com/shorts/{sid}");
+            return;
+        }
+        bool fromShorts = OnShorts;
         var id = Program.VideoId(url);
         if (mode != Mode.Pip || id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[A-Za-z0-9_-]+$")) return;
         var list = Program.WatchParam(url, "list") is { } l && System.Text.RegularExpressions.Regex.IsMatch(l, "^[A-Za-z0-9_-]+$") ? l : null;
@@ -729,7 +787,8 @@ sealed class PipForm : Form
         var inPage = await EvalAsync(InPageWatchJs.Replace("$ID", JsonSerializer.Serialize(id))
             .Replace("$LIST", JsonSerializer.Serialize(list)).Replace("$INDEX", index.ToString()));
         Program.Log($"from list {id} list={list} index={index}: in-page {inPage}");
-        if (inPage?.ValueKind == JsonValueKind.True) return;
+        // from a Short there was no fullscreen to keep: SourceChanged presses it once the watch page is there
+        if (inPage?.ValueKind == JsonValueKind.True || fromShorts && Program.VideoId(web.CoreWebView2.Source) == id) return;
         // fallback, if YouTube changes its internals: reload; `retrying` keeps the PIP while it is out of fullscreen
         lastVideo = null;
         retrying = true;
@@ -742,9 +801,10 @@ sealed class PipForm : Form
         // In Music the track plays on while browsing its other pages (no ?v= then): ask the player. Not on
         // YouTube, whose watch player stays (paused) in the page after going back to the home page.
         var now = await EvalAsync("""
-            (p => ({ v: (location.host === 'music.youtube.com' && p?.getVideoData?.()?.video_id) || new URLSearchParams(location.search).get('v'),
-                     t: Math.floor(document.querySelector('video')?.currentTime || 0),
-                     vol: p?.getVolume ? Math.round(p.getVolume()) : 100, muted: !!p?.isMuted?.() }))(document.querySelector('#movie_player'))
+            (p => ({ v: (location.host === 'music.youtube.com' && p?.getVideoData?.()?.video_id) || new URLSearchParams(location.search).get('v')
+                       || location.pathname.match(/^\/shorts\/([\w-]+)/)?.[1],
+                     t: Math.floor((p?.querySelector('video') ?? document.querySelector('video'))?.currentTime || 0),
+                     vol: p?.getVolume ? Math.round(p.getVolume()) : 100, muted: !!p?.isMuted?.() }))(document.querySelector(location.pathname.startsWith('/shorts/') ? '#shorts-player' : '#movie_player'))
             """);
         string? v = now?.GetProperty("v").GetString();
         int t = now?.GetProperty("t").GetInt32() ?? 0;
@@ -847,7 +907,7 @@ sealed class PipForm : Form
         }
     }
 
-    void FitAspect() => Bounds = Refit(Bounds, Chrome, aspect, Work);
+    void FitAspect() => Bounds = Refit(Bounds, Chrome, Aspect, Work);
 
     // The test copy sits off every screen and must stay there: no screen to keep it on.
     Rectangle Work => Program.Test ? new Rectangle(Left, Top, 1 << 20, 1 << 20) : Screen.FromControl(this).WorkingArea;
@@ -894,7 +954,7 @@ sealed class PipForm : Form
             case WM_SIZING when pip:
             {
                 var r = Marshal.PtrToStructure<RECT>(m.LParam);
-                var fixedRect = LockAspect(Rectangle.FromLTRB(r.L, r.T, r.R, r.B), (int)m.WParam, Chrome, aspect);
+                var fixedRect = LockAspect(Rectangle.FromLTRB(r.L, r.T, r.R, r.B), (int)m.WParam, Chrome, Aspect);
                 Marshal.StructureToPtr(new RECT(fixedRect), m.LParam, false);
                 m.Result = 1;
                 return;
@@ -1074,6 +1134,11 @@ static class SelfTest
         Check(Program.VideoId("https://www.youtube.com/results?search_query=v=x") == null, "not watch");
         Check(Program.VideoId("https://www.youtube.com/watch?v=") == null, "empty id");
         Check(Program.VideoId(null) == null, "null");
+        Check(Program.ShortsId("https://www.youtube.com/shorts/t2Pl9D-mhiI") == "t2Pl9D-mhiI", "shorts id");
+        Check(Program.ShortsId("https://www.youtube.com/shorts/") == null, "shorts tab");
+        Check(Program.ShortsId("https://www.youtube.com/shorts/a'b") == null, "shorts id chars");
+        Check(Program.ShortsId("https://evil.example/shorts/abc") == null, "shorts other host");
+        Check(Program.ShortsId("https://www.youtube.com/watch?v=abc") == null, "watch not shorts");
         return failed ? 1 : 0;
     }
 
