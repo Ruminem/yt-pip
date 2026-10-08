@@ -84,6 +84,13 @@ sealed class PipForm : Form
             const r = v.videoWidth + 'x' + v.videoHeight;
             if (r !== ratio) chrome.webview.postMessage('ratio:' + (ratio = r));
           }, true);
+        // A Short (upright, at most 3 minutes) loops as on YouTube's own Shorts page, instead of autoplay going on to
+        // the next video: it plays here as a watch page. Never an ad's: it would play forever.
+        document.addEventListener('loadedmetadata', e => {
+          const v = e.target;
+          if (location.host === 'www.youtube.com' && v.closest?.('#movie_player'))
+            v.loop = v.videoHeight > v.videoWidth && v.duration <= 181 && !document.querySelector('#movie_player.ad-showing');
+        }, true);
         // Where the video is, for the list panel's thumbnail bars: YouTube draws its own once, when the panel loads.
         let progress = '';
         document.addEventListener('timeupdate', e => {
