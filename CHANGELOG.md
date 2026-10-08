@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.14 — 2026-10-09
+
+- Shorts play in a 9:16 PIP on YouTube's own Shorts page: the mouse wheel goes to the next Short, and each Short loops instead of autoplay moving on.
+- A Short's comments open beside the PIP, which widens for them on whichever side has room as the watch list does, so the video keeps its size; the comments button closes them again, and the PIP goes back to where it was.
+- The Shorts buttons' icons sit on their circles again.
+
+**한국어**
+
+- Shorts 를 YouTube 의 Shorts 페이지 그대로 9:16 PIP 에서 재생함. 마우스 휠로 다음 Shorts 로 넘어가고, 자동재생으로 넘어가지 않고 한 편을 반복함.
+- Shorts 댓글이 PIP 옆에 열림. 볼 목록처럼 공간이 남은 쪽으로 창이 넓어져 영상 크기는 그대로이고, 댓글 버튼을 다시 누르면 닫히며 PIP 가 원래 자리로 돌아옴.
+- Shorts 버튼의 아이콘이 다시 동그라미 가운데에 놓임.
+
 ## 0.1.13 — 2026-10-06
 
 - The watch list opens on whichever side of the PIP the screen has room for: right, else left, below or above, so the PIP stays where it is. Only with no room anywhere does it go right and push the PIP left as before, and closing the list now moves the PIP back to where it was.
