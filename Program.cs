@@ -96,6 +96,14 @@ sealed class PipForm : Form
           if (location.host === 'www.youtube.com' && v.closest?.('#movie_player'))
             v.loop = v.videoHeight > v.videoWidth && v.duration <= 181 && !document.querySelector('#movie_player.ad-showing');
         }, true);
+        // A Short's comments beside it close again from its comments button, as they opened (YouTube leaves them open).
+        addEventListener('click', e => {
+          const b = e.target.closest?.('.ytReelPlayerOverlayViewModelActionsContainer button');
+          const close = document.querySelector('ytd-shorts #anchored-panel ytd-engagement-panel-section-list-renderer[target-id=engagement-panel-comments-section][visibility=ENGAGEMENT_PANEL_VISIBILITY_EXPANDED] #visibility-button button');
+          if (!b || !close || !document.documentElement.classList.contains('yt-pip-cmts') || !/^(댓글|comment)/i.test(b.getAttribute('aria-label') || '')) return;
+          e.preventDefault(); e.stopImmediatePropagation();
+          close.click();
+        }, true);
         // Where the video is, for the list panel's thumbnail bars: YouTube draws its own once, when the panel loads.
         let progress = '';
         document.addEventListener('timeupdate', e => {
@@ -117,9 +125,23 @@ sealed class PipForm : Form
             + 'html.yt-pip-shorts ytd-app { --ytd-masthead-height: 0px !important; }'
             + 'html.yt-pip-shorts #page-manager.ytd-app, html.yt-pip-shorts ytd-shorts, html.yt-pip-shorts ytd-shorts .reel-video-in-sequence-new { margin: 0 !important; }'
             + 'html.yt-pip-shorts ytd-shorts, html.yt-pip-shorts ytd-shorts * { --ytd-shorts-player-height: 100vh !important; --ytd-shorts-player-width: 100vw !important;'
-            + ' --ytd-shorts-masthead-height: 0px !important; min-width: 0 !important; min-height: 0 !important; }'
+            + ' --ytd-shorts-masthead-height: 0px !important; }'
+            // not on every element: the buttons' icon boxes collapse and the icons slip off their circles
+            + 'html.yt-pip-shorts ytd-shorts :is(.reel-video-in-sequence-new, ytd-reel-video-renderer, ytd-player, #sticker-layer, #experiment-overlay, #experiment-overlay > *) { min-width: 0 !important; min-height: 0 !important; }'
             + 'html.yt-pip-shorts ytd-shorts #anchored-panel { left: 0 !important; right: 0 !important; width: auto !important; }'
-            + 'html.yt-pip-shorts ytd-shorts #anchored-panel > * { width: 100% !important; }' })));
+            + 'html.yt-pip-shorts ytd-shorts #anchored-panel > * { width: 100% !important; }'
+            // Comments (any panel) beside the Short: the host widens the window by 360 on the side it says; the video keeps the rest.
+            + 'html.yt-pip-cmts ytd-shorts, html.yt-pip-cmts ytd-shorts * { --ytd-shorts-player-width: calc(100vw - 360px) !important; }'
+            + 'html.yt-pip-cmts ytd-shorts #shorts-container { width: calc(100vw - 360px) !important; }'
+            + 'html.yt-pip-cmts-left ytd-shorts #shorts-container { margin-left: 360px !important; }'
+            + 'html.yt-pip-cmts ytd-shorts #anchored-panel { position: fixed !important; top: 0 !important; height: 100vh !important; width: 360px !important; left: auto !important; right: 0 !important; }'
+            + 'html.yt-pip-cmts-left ytd-shorts #anchored-panel { left: 0 !important; right: auto !important; }'
+            + 'html.yt-pip-cmts ytd-shorts #anchored-panel > * { height: 100% !important; max-height: none !important; }'
+            // no dimming over the video, which also took the wheel from it (the next Short)
+            + 'html.yt-pip-cmts ytd-shorts #anchored-panel-scrim { display: none !important; }'
+            // the wider page gets YouTube's desktop layout, buttons right of the video (under the comments): back over its edge
+            + 'html.yt-pip-cmts ytd-shorts .ytReelPlayerOverlayViewModelActionsContainer { position: absolute !important; left: calc(100vw - 432px) !important; top: 0 !important; bottom: 0 !important; }'
+            + 'html.yt-pip-cmts ytd-shorts .ytReelPlayerOverlayViewModelMetadataContainer { width: calc(100vw - 432px) !important; }' })));
         // Captions start off on every video, whatever YouTube remembers (its own toggle sticks to the next videos).
         // ponytail: decided in the first 3 s the video plays (ads not counted), so C pressed in those seconds is undone.
         if (location.host === 'www.youtube.com') {
@@ -182,7 +204,7 @@ sealed class PipForm : Form
     const string MenuJs = """
         (() => {
           const isMusic = location.host === 'music.youtube.com';
-          let state = { mode: 'none', list: false, onTop: false }, host, menu, musicItem, listItem, ctls;
+          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, musicItem, listItem, ctls, layout = '', panel = false;
           // The host's picks in the player's own controls, before autoplay/subtitles/settings (the left-edge menu shows only
           // while paused): 볼 목록 (PIP only), YouTube Music, 항상 위. Icons drawn here, each a set of path outlines.
           const ctlButton = (cmd, ...ds) => {
@@ -197,8 +219,19 @@ sealed class PipForm : Form
           };
           const update = () => {
             // the Shorts page in the PIP gets its own layout (PlayStateJs's style); YouTube sizes its player on resize
+            // and the comments beside it on the side the host widened the window to
             const shorts = !isMusic && state.mode === 'pip' && location.pathname.startsWith('/shorts/'), root = document.documentElement;
-            if (shorts !== root.classList.contains('yt-pip-shorts')) { root.classList.toggle('yt-pip-shorts', shorts); dispatchEvent(new Event('resize')); }
+            const side = shorts && state.comments;
+            if (layout !== shorts + ' ' + side) {
+              layout = shorts + ' ' + side;
+              root.classList.toggle('yt-pip-shorts', shorts);
+              root.classList.toggle('yt-pip-cmts', !!side);
+              root.classList.toggle('yt-pip-cmts-left', side === 'left');
+              dispatchEvent(new Event('resize'));
+            }
+            // a panel (comments, description) opened or closed on the Shorts page: the host widens or narrows the window
+            const open = shorts && !!document.querySelector('ytd-shorts #anchored-panel ytd-engagement-panel-section-list-renderer[visibility=ENGAGEMENT_PANEL_VISIBILITY_EXPANDED]');
+            if (open !== panel) chrome.webview.postMessage((panel = open) ? 'panel:open' : 'panel:closed');
             const group = !isMusic && document.querySelector('#movie_player .ytp-right-controls-left');
             if (group && !ctls) ctls = [
               ctlButton('list', 'M4 5h16v14H4zM14 5v14'),                                               // a window with a panel on its right
@@ -276,6 +309,7 @@ sealed class PipForm : Form
           chrome.webview.addEventListener('message', e => { state = e.data; update(); });
           for (const t of ['play', 'playing', 'pause', 'ended']) document.addEventListener(t, update, true);
           document.addEventListener('fullscreenchange', update);
+          new MutationObserver(update).observe(document, { subtree: true, attributes: true, attributeFilter: ['visibility'] });  // panels, at once
           setInterval(update, 500);
           if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
         })();
@@ -498,6 +532,8 @@ sealed class PipForm : Form
                 case "menu:list": ToggleList(); return;
                 case "menu:music": await ToggleMusicAsync(); return;
                 case "menu:ontop": ToggleOnTop(); return;
+                case "panel:open": ShowComments(); return;
+                case "panel:closed": HideComments(); return;
                 case not null when msg.StartsWith("progress:"): list.CoreWebView2?.PostWebMessageAsString(msg); return;
                 case not null when msg.StartsWith("ratio:"):
                 {
@@ -541,6 +577,7 @@ sealed class PipForm : Form
             if (wasShorts)
             {
                 wasShorts = false;
+                HideComments();
                 // Off the Shorts page the big window, unless a video is next (the list, back): fullscreen in the PIP.
                 if (pip && Program.VideoId(core.Source) == null) SetMode(Mode.Browse);
                 else if (pip) { retrying = true; FitAspect(); }
@@ -626,7 +663,7 @@ sealed class PipForm : Form
     void SendMenuState()
     {
         var m = mode switch { Mode.Pip => "pip", Mode.Music => "music", _ => "none" };
-        web.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new { mode = m, list = listOpen, onTop = state.OnTop }));
+        web.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new { mode = m, list = listOpen, onTop = state.OnTop, comments = cmtSide }));
     }
 
     void ToggleOnTop()
@@ -642,7 +679,7 @@ sealed class PipForm : Form
         if (listOpen) ShowList();
         else if (list.Visible)
         {
-            var r = PipOnly(Bounds);
+            var r = WithoutList(Bounds);
             r.Offset(-listShift.X, -listShift.Y);
             var wa = Work;
             r.X = Math.Clamp(r.X, wa.Left, Math.Max(wa.Left, wa.Right - r.Width));
@@ -672,22 +709,62 @@ sealed class PipForm : Form
         list.Visible = true;
         Bounds = bounds;
         ResumeLayout();
-        listShift = PipOnly(Bounds).Location - (Size)before;
+        listShift = WithoutList(Bounds).Location - (Size)before;
         _ = InitListAsync();
     }
 
-    // Right, left, below, above: the first side the screen has room for the panel on; else right, slid onto the screen.
-    internal static (DockStyle, Rectangle) PlaceList(Rectangle r, int size, Rectangle work)
+    // Right, left, below, above (not for comments: beside only): the first side the screen has room for the panel on; else
+    // right, slid onto the screen.
+    internal static (DockStyle, Rectangle) PlaceList(Rectangle r, int size, Rectangle work, bool besideOnly = false)
     {
         if (r.Right + size <= work.Right) return (DockStyle.Right, r with { Width = r.Width + size });
         if (r.Left - size >= work.Left) return (DockStyle.Left, Rectangle.FromLTRB(r.Left - size, r.Top, r.Right, r.Bottom));
-        if (r.Bottom + size <= work.Bottom) return (DockStyle.Bottom, r with { Height = r.Height + size });
-        if (r.Top - size >= work.Top) return (DockStyle.Top, Rectangle.FromLTRB(r.Left, r.Top - size, r.Right, r.Bottom));
+        if (!besideOnly && r.Bottom + size <= work.Bottom) return (DockStyle.Bottom, r with { Height = r.Height + size });
+        if (!besideOnly && r.Top - size >= work.Top) return (DockStyle.Top, Rectangle.FromLTRB(r.Left, r.Top - size, r.Right, r.Bottom));
         return (DockStyle.Right, new Rectangle(Math.Max(work.Left, work.Right - r.Width - size), r.Top, r.Width + size, r.Height));
     }
 
-    // The window without the panel: where the video is.
-    Rectangle PipOnly(Rectangle b) => !list.Visible ? b : list.Dock switch
+    // A Short's comments beside it, in the page (PlayStateJs's style), the window widened for them as for the list:
+    // the video keeps its size and place unless the screen has no room, and comes back when they close.
+    string? cmtSide;  // "left" / "right" while they are beside the video
+    Point cmtShift;
+    int CmtWidth => LogicalToDeviceUnits(360);  // the style's 360 CSS px
+
+    void ShowComments()
+    {
+        if (!pip || !OnShorts || cmtSide != null) return;
+        var (dock, bounds) = PlaceList(Bounds, CmtWidth, Work, besideOnly: true);
+        cmtSide = dock == DockStyle.Left ? "left" : "right";
+        var before = Location;
+        SendMenuState();  // the page lays out for it first
+        Bounds = bounds;
+        cmtShift = WithoutComments(Bounds).Location - (Size)before;
+    }
+
+    void HideComments()
+    {
+        if (cmtSide == null) return;
+        var r = WithoutComments(Bounds);
+        r.Offset(-cmtShift.X, -cmtShift.Y);
+        var wa = Work;
+        r.X = Math.Clamp(r.X, wa.Left, Math.Max(wa.Left, wa.Right - r.Width));
+        cmtSide = null;
+        cmtShift = Point.Empty;
+        SendMenuState();
+        Bounds = r;
+    }
+
+    Rectangle WithoutComments(Rectangle b) => cmtSide switch
+    {
+        "left" => Rectangle.FromLTRB(b.Left + CmtWidth, b.Top, b.Right, b.Bottom),
+        "right" => b with { Width = b.Width - CmtWidth },
+        _ => b,
+    };
+
+    // The window without the list and the comments: where the video is.
+    Rectangle PipOnly(Rectangle b) => WithoutComments(WithoutList(b));
+
+    Rectangle WithoutList(Rectangle b) => !list.Visible ? b : list.Dock switch
     {
         DockStyle.Left => Rectangle.FromLTRB(b.Left + list.Width, b.Top, b.Right, b.Bottom),
         DockStyle.Top => Rectangle.FromLTRB(b.Left, b.Top + list.Height, b.Right, b.Bottom),
@@ -859,7 +936,7 @@ sealed class PipForm : Form
 
     void RememberRect()
     {
-        if (mode == Mode.Pip) { var r = PipOnly(Bounds); r.Offset(-listShift.X, -listShift.Y); state.PipRect = r; }
+        if (mode == Mode.Pip) { var r = PipOnly(Bounds); r.Offset(-listShift.X - cmtShift.X, -listShift.Y - cmtShift.Y); state.PipRect = r; }
         else if (mode == Mode.Browse) state.BrowseRect = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
     }
 
@@ -871,6 +948,8 @@ sealed class PipForm : Form
         mode = next;
         list.Visible = false;  // the rects below are without the panel; ShowList adds it back in PIP
         listShift = Point.Empty;
+        cmtSide = null;
+        cmtShift = Point.Empty;
         // Borderless over the whole monitor, so Windows treats it as fullscreen and the taskbar goes behind.
         FormBorderStyle = next == Mode.Monitor ? FormBorderStyle.None : FormBorderStyle.Sizable;
         ApplyFrame();
@@ -903,7 +982,7 @@ sealed class PipForm : Form
         {
             int frame = Width - ClientSize.Width;
             bool beside = list.Dock is DockStyle.Left or DockStyle.Right;
-            return new(frame + (list.Visible && beside ? list.Width : 0), frame / 2 + (list.Visible && !beside ? list.Height : 0));
+            return new(frame + (list.Visible && beside ? list.Width : 0) + (cmtSide != null ? CmtWidth : 0), frame / 2 + (list.Visible && !beside ? list.Height : 0));
         }
     }
 
@@ -1115,6 +1194,8 @@ static class SelfTest
         Check(PipForm.PlaceList(new Rectangle(100, 100, 1700, 300), 360, work) == (DockStyle.Bottom, new Rectangle(100, 100, 1700, 660)), "list below");
         Check(PipForm.PlaceList(new Rectangle(100, 700, 1700, 300), 360, work) == (DockStyle.Top, new Rectangle(100, 340, 1700, 660)), "list above");
         Check(PipForm.PlaceList(new Rectangle(100, 200, 1700, 700), 360, work) == (DockStyle.Right, new Rectangle(0, 200, 2060, 700)), "list slid");
+        // Comments go beside only: room below is not taken.
+        Check(PipForm.PlaceList(new Rectangle(100, 100, 1700, 300), 360, work, besideOnly: true) == (DockStyle.Right, new Rectangle(0, 100, 2060, 300)), "comments beside");
 
         using (var s = typeof(PipForm).Assembly.GetManifestResourceStream("app.ico"))
             Check(s != null && new Icon(s, 16, 16).Width == 16, "embedded icon");
