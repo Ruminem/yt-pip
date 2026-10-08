@@ -91,6 +91,17 @@ sealed class PipForm : Form
           if (location.host === 'www.youtube.com' && v.closest?.('#movie_player'))
             v.loop = v.videoHeight > v.videoWidth && v.duration <= 181 && !document.querySelector('#movie_player.ad-showing');
         }, true);
+        // A Short picked anywhere opens as a watch page, so it goes PIP (and loops, above) like any video, instead of
+        // YouTube's Shorts page in the big window. Before YouTube's own navigation: no Shorts page to come back to.
+        addEventListener('click', e => {
+          const a = e.target.closest?.('a[href*="/shorts/"]');
+          const id = a && location.host === 'www.youtube.com' && new URL(a.href).pathname.split('/')[2];
+          if (!/^[\w-]{11}$/.test(id)) return;
+          e.preventDefault(); e.stopImmediatePropagation();
+          document.querySelector('ytd-app').dispatchEvent(new CustomEvent('yt-navigate', { bubbles: true, composed: true, detail: { endpoint: {
+            commandMetadata: { webCommandMetadata: { url: '/watch?v=' + id, webPageType: 'WEB_PAGE_TYPE_WATCH', rootVe: 3832 } },
+            watchEndpoint: { videoId: id } } } }));
+        }, true);
         // Where the video is, for the list panel's thumbnail bars: YouTube draws its own once, when the panel loads.
         let progress = '';
         document.addEventListener('timeupdate', e => {
