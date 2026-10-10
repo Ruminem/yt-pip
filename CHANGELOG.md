@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.16 — 2026-10-10
+
+- YouTube's own fullscreen on a Short (a double-click, say) no longer gets stuck: from the big window it goes to the Shorts PIP as other videos do, and the big window button no longer brings back a fullscreen page without YouTube's top bar.
+
+**한국어**
+
+- Shorts 에서 YouTube 자체 전체화면(더블클릭 등)이 켜져도 더는 꼬이지 않음. 큰 창에서였으면 다른 영상처럼 Shorts PIP 가 되고, 큰 창 버튼을 눌렀을 때 YouTube 위쪽 막대가 없는 전체화면 페이지로 돌아오던 것이 없어짐.
+
 ## 0.1.15 — 2026-10-10
 
 - A Short in the PIP has a button left of YouTube's ⋮ that goes back to the big window, as leaving fullscreen does for other videos (the Shorts page has no fullscreen). It shows with YouTube's own top controls when the mouse is over the window.
