@@ -543,6 +543,11 @@ sealed class PipForm : Form
         state.Load();
         Bounds = state.BrowseRect;
         TopMost = state.OnTop;
+        // Windows makes a window topmost only while its process may take the foreground, and ignores it otherwise
+        // (SetWindowPos says so; it still returns success). Started in the background, as replacing the installed
+        // copy does, the window came up below others until "항상 위에 표시" was turned off and on (2026-10-10).
+        // The first activation (a click on it) gives that right: take topmost then.
+        Activated += (_, _) => { if (state.OnTop) SetWindowPos(Handle, -1, 0, 0, 0, 0, 0x13); };  // HWND_TOPMOST; NOSIZE | NOMOVE | NOACTIVATE
         ShowInTaskbar = !Program.Test;
         Controls.Add(web);
         Controls.Add(list);  // added after the Fill control so docking gives it the right edge first
