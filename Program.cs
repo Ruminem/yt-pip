@@ -1207,7 +1207,7 @@ sealed class PipForm : Form
         // cut off if the page goes again (a redirect), then asked again
         while (v != null && r == null && gen == switches && sw.ElapsedMilliseconds < 20000)
             if ((r = (await EvalAsync(Resume(load ? null : now?.v, t, vol, muted), m))?.GetString()) == null) await Task.Delay(50);
-        await HandOverAsync(gen, Mode.Music, m, web.CoreWebView2);
+        HandOver(gen, Mode.Music, m, web.CoreWebView2);
         if (v != null && gen == switches && r?.StartsWith("playing") == true && (await ReadPlayerAsync(m))?.v is { } got) musicTrack = (v, got);
         Program.Log($"into Music {v} ({(load ? "loaded" : "as it was")}): {r ?? "nothing to wait for"}; handed over at {sw.ElapsedMilliseconds}ms, Music plays {musicTrack?.Got}");
     }
@@ -1232,7 +1232,7 @@ sealed class PipForm : Form
             Program.Log($"out of Music to {url}");
             SetMode(Mode.Browse);
             web.CoreWebView2.Navigate(url);
-            await EvalAsync(PauseJs, m);
+            HandOver(gen, Mode.Browse, web.CoreWebView2, m);
             return;
         }
         var (v, t, vol, muted) = await ReadPlayerAsync(m) ?? (null, 0, 100, false);
@@ -1262,16 +1262,20 @@ sealed class PipForm : Form
                 web.CoreWebView2.Navigate($"https://www.youtube.com/watch?v={v}");
             }
         }
-        await HandOverAsync(gen, Mode.Browse, web.CoreWebView2, m);
+        HandOver(gen, Mode.Browse, web.CoreWebView2, m);
         Program.Log($"out of Music: {r ?? "nothing to wait for"}; handed over at {sw.ElapsedMilliseconds}ms");
     }
 
     // After the side switched to plays (or never will): the other stops. Pressed again meanwhile, whichever side is not
-    // showing now stops instead (the one this switch was starting, if the window went back).
-    async Task HandOverAsync(int gen, Mode to, CoreWebView2 shown, CoreWebView2 other)
+    // showing now stops instead (the one this switch was starting, if the window went back). Muted here at once: a hidden
+    // view's page runs the pause only when shown again (installed, 2026-10-10: YouTube played on 23 s under Music), so it
+    // is not waited for either. SetMode unmutes the side it shows; the late pause still lands before that side's Resume.
+    void HandOver(int gen, Mode to, CoreWebView2 shown, CoreWebView2 other)
     {
-        if (gen == switches) await EvalAsync(PauseJs, other);
-        else if ((mode == Mode.Music) != (to == Mode.Music)) await EvalAsync(PauseJs, shown);
+        var off = gen == switches ? other : (mode == Mode.Music) != (to == Mode.Music) ? shown : null;
+        if (off == null) return;
+        off.IsMuted = true;
+        _ = EvalAsync(PauseJs, off);
     }
 
     async Task<JsonElement?> EvalAsync(string js, CoreWebView2? c = null)
@@ -1314,6 +1318,7 @@ sealed class PipForm : Form
         mode = next;
         web.Visible = next != Mode.Music;
         music.Visible = next == Mode.Music;
+        if ((next == Mode.Music ? music : web).CoreWebView2 is { } shown) shown.IsMuted = false;  // muted by HandOver
         if (ContainsFocus) (next == Mode.Music ? music : web).Focus();  // the keys (space, arrows) to the side showing
         ShowTitle();
         list.Visible = false;  // the rects below are without the panel; ShowList adds it back in PIP
