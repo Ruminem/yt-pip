@@ -581,9 +581,18 @@ sealed class PipForm : Form
         core.ContainsFullScreenElementChanged += (_, _) =>
         {
             Program.Log($"fullscreen changed: {core.ContainsFullScreenElement}");
+            // The Shorts page's own fullscreen (a hidden button, double-click) is not the Shorts PIP, which is the page as
+            // it is: drop it, going PIP from the big window as a watch page does. Left on, '큰 창으로' brought the page's
+            // fullscreen into the big window (2026-10-10). Leaving a watch page for a Short drops fullscreen too: no change.
+            if (OnShorts)
+            {
+                if (!core.ContainsFullScreenElement) return;
+                _ = EvalAsync("document.exitFullscreen()");
+                if (mode == Mode.Browse && !monitorFull) SetMode(Mode.Pip);
+                return;
+            }
             // YouTube Music has no fullscreen; leaving YouTube for it drops fullscreen, which is not "go back to browsing".
-            // Nor is a Short picked from the list: the Shorts page has no fullscreen either.
-            if (mode == Mode.Music || (retrying || OnShorts) && !core.ContainsFullScreenElement) return;
+            if (mode == Mode.Music || retrying && !core.ContainsFullScreenElement) return;
             SetMode(!core.ContainsFullScreenElement ? Mode.Browse : monitorFull ? Mode.Monitor : Mode.Pip);
             ShowList();  // back from Music the window was PIP already, so SetMode did nothing
         };
