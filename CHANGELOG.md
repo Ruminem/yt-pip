@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.31 — 2026-10-10
+
+- Going back from YouTube Music to YouTube shows the video you left, even when Music has moved on to another song (its own pick, or its back button to an earlier song). It resumes from Music's position only when Music was playing the same song.
+
+**한국어**
+
+- YouTube Music 에서 YouTube 로 돌아가면 두고 간 영상이 그대로 뜸. Music 이 다른 곡으로 넘어가 있어도(Music 이 고른 곡이나 Music 안에서 뒤로 가서 나온 예전 곡) 그 곡을 열지 않음. Music 이 같은 곡을 틀고 있었을 때만 Music 에서 듣던 시점부터 이어서 재생함.
+
 ## 0.1.30 — 2026-10-10
 
 - Switching from YouTube to YouTube Music no longer leaves YouTube playing the same song underneath: the side you leave goes silent as soon as the other side plays.
