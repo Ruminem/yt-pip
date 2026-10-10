@@ -803,7 +803,7 @@ sealed class PipForm : Form
                 lastVideo = null;  // a video after it is new
                 retrying = false;  // from the list: the PIP was kept while the watch page left fullscreen
                 if (!wasShorts && mode == Mode.Browse && !monitorFull) SetMode(Mode.Pip);
-                else if (!wasShorts && pip) FitAspect();  // from a video in the PIP (the list): the Short's shape
+                else if (!wasShorts && pip) FitAspect(morph: true);  // from a video in the PIP (the list): the Short's shape
                 wasShorts = true;
                 return;
             }
@@ -815,7 +815,7 @@ sealed class PipForm : Form
                 // Off the Shorts page the big window, unless a video is next (the list, back): fullscreen in the PIP,
                 // covered meanwhile as from the big window (else the watch page shows in it for 1.3-2.7 s, 2026-10-10).
                 if (pip && Program.VideoId(core.Source) == null) SetMode(Mode.Browse);
-                else if (pip) { retrying = true; covered = true; await EvalAsync(CoverJs); FitAspect(); }
+                else if (pip) { retrying = true; covered = true; await EvalAsync(CoverJs); FitAspect(morph: true); }
             }
             var id = Program.VideoId(core.Source);
             // Off the watch page (back to the home page, say): coming back to the same video, forward, is PIP again.
@@ -1051,9 +1051,72 @@ sealed class PipForm : Form
         Controls.Add(cover);
         cover.BringToFront();
         Bounds = to;
-        await EvalAsync($"new Promise(r => {{ const t0 = Date.now(), f = () => Math.abs(innerWidth * devicePixelRatio - {web.Width}) < 2 || Date.now() - t0 > 1000"
-            + " ? requestAnimationFrame(() => requestAnimationFrame(r)) : requestAnimationFrame(f); f(); })");
+        await PaintedAsync();
         shot.Dispose();
+    }
+
+    // Once the page has painted at the view's size (at most a second).
+    Task PaintedAsync() => EvalAsync($"new Promise(r => {{ const t0 = Date.now(), f = () => Math.abs(innerWidth * devicePixelRatio - {web.Width}) < 2 || Date.now() - t0 > 1000"
+        + " ? requestAnimationFrame(() => requestAnimationFrame(r)) : requestAnimationFrame(f); f(); })");
+
+    // Between a video and a Short the PIP changes shape over 0.2 s, not at once (user, 2026-10-10). Over the window
+    // meanwhile its last frame, stretched with it: the page paints each new size some 50 ms late, its edges would lag.
+    // A newer change takes over from where this one got to; leaving the PIP ends it.
+    PictureBox? morphCover;
+    Bitmap? morphShot;
+    Rectangle morphTo;
+    int morphs;
+    async void Morph(Rectangle to)
+    {
+        int gen = ++morphs;
+        var from = Bounds;
+        morphTo = to;
+        if (from == to) { EndMorph(gen); return; }
+        if (morphCover == null)
+        {
+            var shot = morphShot = new Bitmap(ClientSize.Width, ClientSize.Height);
+            using (var g = Graphics.FromImage(shot)) { var dc = g.GetHdc(); PrintWindow(Handle, dc, 3); g.ReleaseHdc(dc); }  // client, page included
+            // the video's middle filling the PIP's part, in its shape (stretched, a 16:9 frame squashed into 9:16); the list
+            // beside it as it was (stretched, its text squashed)
+            Rectangle v0 = web.Bounds, l0 = list.Visible ? list.Bounds : Rectangle.Empty;
+            RectangleF Middle(Rectangle to)
+            {
+                float a = (float)to.Width / Math.Max(1, to.Height), w = Math.Min(v0.Width, v0.Height * a), h = w / a;
+                return new RectangleF(v0.X + (v0.Width - w) / 2, v0.Y + (v0.Height - h) / 2, w, h);
+            }
+            morphCover = new PictureBox { Bounds = ClientRectangle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
+            morphCover.Paint += (_, e) =>
+            {
+                e.Graphics.Clear(BackColor);
+                e.Graphics.DrawImage(shot, web.Bounds, Middle(web.Bounds), GraphicsUnit.Pixel);
+                if (!l0.IsEmpty) e.Graphics.DrawImage(shot, new Rectangle(list.Location, l0.Size), l0, GraphicsUnit.Pixel);
+            };
+            Controls.Add(morphCover);
+            morphCover.BringToFront();
+        }
+        static int At(int a, int b, double e) => a + (int)Math.Round((b - a) * e);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        for (double k; (k = sw.ElapsedMilliseconds / 200.0) < 1; await Task.Delay(10))
+        {
+            if (gen != morphs || !pip) { EndMorph(gen); return; }
+            double e = 1 - Math.Pow(1 - k, 3);  // ease out
+            Bounds = new Rectangle(At(from.X, to.X, e), At(from.Y, to.Y, e), At(from.Width, to.Width, e), At(from.Height, to.Height, e));
+            morphCover?.Refresh();
+        }
+        if (gen != morphs || !pip) { EndMorph(gen); return; }
+        Bounds = to;
+        await PaintedAsync();
+        Program.Log($"morph {from.Size} -> {to.Size}: {sw.ElapsedMilliseconds} ms");
+        EndMorph(gen);
+    }
+
+    void EndMorph(int gen)
+    {
+        if (gen != morphs || morphCover == null) return;
+        morphCover.Dispose();
+        morphCover = null;
+        morphShot?.Dispose();
+        morphShot = null;
     }
 
     void HideComments()
@@ -1430,7 +1493,13 @@ sealed class PipForm : Form
         }
     }
 
-    void FitAspect() => Bounds = Refit(Bounds, Chrome, Aspect, Work);
+    // morph: over 0.2 s (Morph); so too while one runs, toward its end (refit from a size half way there grows it)
+    void FitAspect(bool morph = false)
+    {
+        var to = Refit(morphCover != null ? morphTo : Bounds, Chrome, Aspect, Work);
+        if (morphCover != null && to == morphTo) return;
+        if (morph || morphCover != null) Morph(to); else Bounds = to;
+    }
 
     // The test copy sits off every screen and must stay there: no screen to keep it on. YTPIP_TEST_EDGE=1: the screen
     // ends at its right edge, as a PIP in the bottom-right corner (panels open on the left).
