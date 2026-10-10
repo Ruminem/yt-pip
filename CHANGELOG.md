@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.36 — 2026-10-10
+
+- Going back to a video now starts it right where you left it: no more flash of 0:00 and a moment of sound from the start before the jump.
+
+**한국어**
+
+- 영상으로 돌아오면 이제 보던 자리에서 바로 시작함. 넘어가기 전에 0:00 이 잠깐 보이고 처음 소리가 들리던 것이 없어짐.
+
 ## 0.1.35 — 2026-10-10
 
 - Going back to a video, from a Short or another video, picks it up where you left it instead of starting it over. If an ad plays first, the jump comes after it.
