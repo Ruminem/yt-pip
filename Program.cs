@@ -546,11 +546,13 @@ sealed class PipForm : Form
             wait = setInterval(() => {
               const p = player();
               if (new URLSearchParams(location.search).get('v') !== id || Date.now() - t0 > 60000) return clearInterval(wait);
-              // playing (1) on its own: a stopped or paused one stays so
-              if (p?.getVideoData?.()?.video_id !== id || p.classList.contains('ad-showing') || p.getPlayerState?.() !== 1) return;
-              clearInterval(wait);
+              // from buffering (3), before it sounds from 0 (playing 515 ms after the back, 2026-10-10), till it plays (1) there;
+              // not cued (5): it loads again from 0 after (-1). A paused one stays so
+              const s = p?.getVideoData?.()?.video_id === id && !p.classList.contains('ad-showing') && p.getPlayerState?.();
+              if (s !== 1 && s !== 3) return;
               if (p.getCurrentTime() < t - 3) p.seekTo(t, true);
-            }, 250);
+              else if (s === 1) clearInterval(wait);
+            }, 50);
           });
         }
         """;
