@@ -370,6 +370,11 @@ sealed class PipForm : Form
             update();
           };
           chrome.webview.addEventListener('message', e => { state = e.data; update(); });
+          // No view transitions in the PIP, or under the cover on the way into it: YouTube cross-fades a Short and the watch
+          // page in one, and its snapshot stood the video still for ~200 ms at the start (2026-10-11). Without, it just swaps.
+          const vt = document.startViewTransition;
+          if (!isMusic && vt) Object.defineProperty(document, 'startViewTransition', { configurable: true,
+            get: () => state.mode === 'pip' || document.getElementById('yt-pip-cover') ? undefined : vt });
           addEventListener('click', e => { if (e.isTrusted) fresh = 0; }, true);
           for (const t of ['play', 'playing', 'pause', 'ended']) document.addEventListener(t, update, true);
           document.addEventListener('fullscreenchange', update);
@@ -598,37 +603,41 @@ sealed class PipForm : Form
         """;
 
     // While a new video gets to the PIP (~1.4 s, 0.5 s of it playing already, 2026-10-10): over the page its thumbnail,
-    // then the video itself drawn on a canvas once it plays, so it shows at once instead of the window's colour. It lets
-    // the mouse through (and elementFromPoint looks past it), so the fullscreen button is still found and pressed.
-    // Only the new video is drawn (the home page's hover preview is a #movie_player too).
-    // Its own view-transition-name: YouTube cross-fades the watch page in a view transition once the page under it has
-    // loaded, drawn in the top layer, and the cover in the root snapshot showed under the player and bar for ~200 ms
-    // (2026-10-10); as its own group it is drawn last, over the others.
+    // then the video element itself once it plays, lifted over the cover into the top layer (a popover), so it shows at
+    // once instead of the window's colour. Not drawn on a canvas: YouTube building the watch page holds its main thread
+    // 200-350 ms, and a canvas copy stood still that long, a stutter at the start; the element's frames go on without it
+    // (2026-10-11). Cover and video let the mouse through (and elementFromPoint looks past them), so the fullscreen button
+    // is still found and pressed. Only the new video is shown (the home page's hover preview is a #movie_player too).
+    // No view transition meanwhile (MenuJs). Its own view-transition-name for one already running: drawn last, over the
+    // others (it was under the player and bar for ~200 ms, 2026-10-10).
     const string CoverJs = """
         (() => {
           if (document.getElementById('yt-pip-cover')) return;
           const id = new URLSearchParams(location.search).get('v');
-          const c = Object.assign(document.createElement('canvas'), { id: 'yt-pip-cover' });
-          c.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:2147483647;pointer-events:none;view-transition-name:yt-pip-cover;background:#181818 center/contain no-repeat'
+          const c = Object.assign(document.createElement('div'), { id: 'yt-pip-cover' });
+          c.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;view-transition-name:yt-pip-cover;background:#181818 center/contain no-repeat'
             + (/^[\w-]+$/.test(id) ? ` url("https://i.ytimg.com/vi/${id}/mqdefault.jpg")` : '');
           document.documentElement.append(c);
-          // the page's scrollbar beside it otherwise, until fullscreen (2026-10-10)
+          // the page's scrollbar beside it otherwise, until fullscreen (2026-10-10); YouTube's inline size and place on the lifted video
           if (!document.getElementById('yt-pip-cover-css')) document.documentElement.append(Object.assign(document.createElement('style'),
-            { id: 'yt-pip-cover-css', textContent: 'html:has(> #yt-pip-cover) { scrollbar-width: none }' }));
-          const g = c.getContext('2d');
-          const draw = () => {
-            if (!c.isConnected) return;
+            { id: 'yt-pip-cover-css', textContent: 'html:has(> #yt-pip-cover) { scrollbar-width: none }'
+              + ' video.yt-pip-lifted:popover-open { position: fixed !important; inset: 0 !important; width: 100% !important; height: 100% !important;'
+              + ' margin: 0 !important; padding: 0 !important; border: 0 !important; max-width: none !important; max-height: none !important;'
+              + ' transform: none !important; object-fit: contain !important; background: #000 !important; pointer-events: none !important; }' }));
+          let lifted = null;
+          const drop = c.off = () => { if (!lifted) return; if (lifted.matches(':popover-open')) lifted.hidePopover(); lifted.removeAttribute('popover'); lifted.classList.remove('yt-pip-lifted'); lifted = null; };
+          const lift = () => {
+            if (!c.isConnected) return drop();
             const p = document.querySelector('#movie_player'), v = p?.querySelector('video');
-            if (v && !v.paused && v.readyState >= 2 && v.videoWidth && p.getVideoData?.()?.video_id === id) {
-              const w = Math.round(innerWidth * devicePixelRatio), h = Math.round(innerHeight * devicePixelRatio);
-              if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
-              const s = Math.min(w / v.videoWidth, h / v.videoHeight), vw = v.videoWidth * s, vh = v.videoHeight * s;
-              g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
-              g.drawImage(v, (w - vw) / 2, (h - vh) / 2, vw, vh);
+            if (v !== lifted) {
+              drop();
+              if (v && !v.paused && v.readyState >= 2 && v.videoWidth && p.getVideoData?.()?.video_id === id) {
+                v.classList.add('yt-pip-lifted'); v.popover = 'manual'; v.showPopover(); lifted = v;
+              }
             }
-            requestAnimationFrame(draw);
+            setTimeout(lift, 16);
           };
-          draw();
+          lift();
         })()
         """;
     // In fullscreen the watch page's bar is still what shows at the top for 30+ ms after its fullscreen layout is on
@@ -642,7 +651,7 @@ sealed class PipForm : Form
             const c = document.getElementById('yt-pip-cover');
             if (c && document.fullscreenElement && document.elementFromPoint(innerWidth / 2, 8)?.closest('ytd-masthead, #masthead-container')
               && performance.now() - t0 < 1000) return setTimeout(go, 16);
-            c?.remove(); done(null);
+            c?.off?.(); c?.remove(); done(null);
           };
           go();
         })
@@ -1061,11 +1070,14 @@ sealed class PipForm : Form
 
     // Between a video and a Short the PIP changes shape over 0.2 s, not at once (user, 2026-10-10). Over the window
     // meanwhile its last frame, stretched with it: the page paints each new size some 50 ms late, its edges would lag.
+    // Its layout held meanwhile: laying the three WebView2s out again made each step 30-50 ms, some 25 fps (2026-10-11);
+    // they take the new size once, at the end, under the cover. One step a screen refresh (DwmFlush).
     // A newer change takes over from where this one got to; leaving the PIP ends it.
     PictureBox? morphCover;
     Bitmap? morphShot;
     Rectangle morphTo;
     int morphs;
+    bool morphHeld;
     async void Morph(Rectangle to)
     {
         int gen = ++morphs;
@@ -1074,45 +1086,73 @@ sealed class PipForm : Form
         if (from == to) { EndMorph(gen); return; }
         if (morphCover == null)
         {
-            var shot = morphShot = new Bitmap(ClientSize.Width, ClientSize.Height);
+            // premultiplied: what GDI+ draws fastest, the steps' paint 1-11 ms in 32bppArgb (2026-10-11)
+            var shot = morphShot = new Bitmap(ClientSize.Width, ClientSize.Height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
             using (var g = Graphics.FromImage(shot)) { var dc = g.GetHdc(); PrintWindow(Handle, dc, 3); g.ReleaseHdc(dc); }  // client, page included
-            // the video's middle filling the PIP's part, in its shape (stretched, a 16:9 frame squashed into 9:16); the list
-            // beside it as it was (stretched, its text squashed)
+            // the video's middle filling the PIP's part, in its shape; the list beside it as it was (docked as the layout
+            // will put it, which is held)
             Rectangle v0 = web.Bounds, l0 = list.Visible ? list.Bounds : Rectangle.Empty;
             RectangleF Middle(Rectangle to)
             {
                 float a = (float)to.Width / Math.Max(1, to.Height), w = Math.Min(v0.Width, v0.Height * a), h = w / a;
                 return new RectangleF(v0.X + (v0.Width - w) / 2, v0.Y + (v0.Height - h) / 2, w, h);
             }
-            morphCover = new PictureBox { Bounds = ClientRectangle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
+            morphCover = new PictureBox { Bounds = ClientRectangle };
             morphCover.Paint += (_, e) =>
             {
+                var c = morphCover.ClientRectangle;
+                Rectangle l = l0.IsEmpty ? Rectangle.Empty : list.Dock switch
+                {
+                    DockStyle.Left => c with { Width = l0.Width },
+                    DockStyle.Top => c with { Height = l0.Height },
+                    DockStyle.Bottom => Rectangle.FromLTRB(c.Left, c.Bottom - l0.Height, c.Right, c.Bottom),
+                    _ => Rectangle.FromLTRB(c.Right - l0.Width, c.Top, c.Right, c.Bottom),
+                };
+                var v = l.IsEmpty ? c : list.Dock switch
+                {
+                    DockStyle.Left => Rectangle.FromLTRB(l.Right, c.Top, c.Right, c.Bottom),
+                    DockStyle.Top => Rectangle.FromLTRB(c.Left, l.Bottom, c.Right, c.Bottom),
+                    DockStyle.Bottom => Rectangle.FromLTRB(c.Left, c.Top, c.Right, l.Top),
+                    _ => Rectangle.FromLTRB(c.Left, c.Top, l.Left, c.Bottom),
+                };
+                e.Graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
                 e.Graphics.Clear(BackColor);
-                e.Graphics.DrawImage(shot, web.Bounds, Middle(web.Bounds), GraphicsUnit.Pixel);
-                if (!l0.IsEmpty) e.Graphics.DrawImage(shot, new Rectangle(list.Location, l0.Size), l0, GraphicsUnit.Pixel);
+                e.Graphics.DrawImage(shot, v, Middle(v), GraphicsUnit.Pixel);
+                if (!l.IsEmpty) e.Graphics.DrawImage(shot, new Rectangle(l.Location, l0.Size), l0, GraphicsUnit.Pixel);
             };
             Controls.Add(morphCover);
             morphCover.BringToFront();
         }
+        if (!morphHeld) { SuspendLayout(); morphHeld = true; }
         static int At(int a, int b, double e) => a + (int)Math.Round((b - a) * e);
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        for (double k; (k = sw.ElapsedMilliseconds / 200.0) < 1; await Task.Delay(10))
+        int steps = 0; long last = 0, worst = 0;
+        Task refresh = Task.CompletedTask;
+        for (double k; (k = sw.ElapsedMilliseconds / 200.0) < 1; await refresh)
         {
             if (gen != morphs || !pip) { EndMorph(gen); return; }
+            refresh = Task.Run(DwmFlush);  // the next screen refresh, waited for while this step is made
             double e = 1 - Math.Pow(1 - k, 3);  // ease out
             Bounds = new Rectangle(At(from.X, to.X, e), At(from.Y, to.Y, e), At(from.Width, to.Width, e), At(from.Height, to.Height, e));
-            morphCover?.Refresh();
+            morphCover!.Bounds = ClientRectangle;
+            morphCover.Refresh();
+            steps++; worst = Math.Max(worst, sw.ElapsedMilliseconds - last); last = sw.ElapsedMilliseconds;
         }
         if (gen != morphs || !pip) { EndMorph(gen); return; }
         Bounds = to;
+        morphCover!.Bounds = ClientRectangle;
+        morphHeld = false;
+        ResumeLayout();
+        long moved = sw.ElapsedMilliseconds;
         await PaintedAsync();
-        Program.Log($"morph {from.Size} -> {to.Size}: {sw.ElapsedMilliseconds} ms");
+        Program.Log($"morph {from.Size} -> {to.Size}: {steps} steps, worst {worst} ms, moved {moved} ms, painted {sw.ElapsedMilliseconds} ms");
         EndMorph(gen);
     }
 
     void EndMorph(int gen)
     {
         if (gen != morphs || morphCover == null) return;
+        if (morphHeld) { morphHeld = false; ResumeLayout(); }
         morphCover.Dispose();
         morphCover = null;
         morphShot?.Dispose();
@@ -1616,6 +1656,7 @@ sealed class PipForm : Form
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool ModifyMenu(IntPtr menu, int id, int flags, nint newId, string text);
     [DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
     [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hWnd, IntPtr dc, uint flags);
+    [DllImport("dwmapi.dll")] static extern int DwmFlush();
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
 }
 
