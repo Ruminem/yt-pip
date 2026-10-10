@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.21 — 2026-10-10
+
+- The Shorts button back to the big window is now a back arrow named 돌아가기, and sits beside YouTube's buttons at the top right instead of over them.
+- A video picked in the list after a Short fills the PIP about 0.8 s sooner: it no longer waits for the watch page to take the new video before going fullscreen.
+
+**한국어**
+
+- Shorts 에서 큰 창으로 돌아가는 버튼이 '돌아가기'라는 이름의 뒤로 가기 화살표로 바뀜. 오른쪽 위 YouTube 버튼 위에 겹치지 않고 그 옆에 놓임.
+- Shorts 다음에 목록에서 고른 영상이 약 0.8초 빨리 PIP 를 채움. 영상 페이지가 새 영상을 받을 때까지 기다리지 않고 전체화면으로 감.
+
 ## 0.1.20 — 2026-10-10
 
 - The PIP keeps its top-left corner when it changes shape between a Short and another video, moving only to stay on the screen. Before, a PIP in the lower half of the screen grew upward from its bottom edge.
