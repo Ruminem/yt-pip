@@ -606,7 +606,6 @@ sealed class PipForm : Form
     string? userCss;
     bool listOpen;  // session only, like monitorFull
     Point listShift;  // how far ShowList slid the video to fit the panel; closing slides it back
-    (string v, int t, int vol, bool muted)? pendingRestore;  // from Music to another video: applied once the page has it
     Mode backMode;  // the YouTube side's mode as it was left for Music
     int switches;  // counts switches: one waiting for its side to play knows when another came after it
     (string Asked, string Got)? musicTrack;  // the video last taken to Music, and the id Music plays it under
@@ -769,11 +768,10 @@ sealed class PipForm : Form
                 if (!core.ContainsFullScreenElement && mode == Mode.Pip) SetMode(Mode.Browse);  // it never got there: the page as it is
                 await EvalAsync(UncoverJs);
             }
-            // `retrying` here: a video picked from the list or from Music, the window is already PIP. Covered unless its
-            // fullscreen stayed (YouTube's in-page navigation keeps it), as from the big window.
+            // `retrying` here: a video picked from the list, the window is already PIP. Covered unless its fullscreen stayed
+            // (YouTube's in-page navigation keeps it), as from the big window.
             else if (retrying)
             {
-                _ = RestoreAsync();
                 if (!core.ContainsFullScreenElement)
                 {
                     covered = true;
@@ -784,11 +782,7 @@ sealed class PipForm : Form
             }
             else if (covered) await EvalAsync(UncoverJs);
         };
-        core.NavigationCompleted += async (_, _) =>
-        {
-            SendMenuState();
-            await RestoreAsync();
-        };
+        core.NavigationCompleted += (_, _) => SendMenuState();
         web.Source = new Uri(startUrl ?? "https://www.youtube.com/");
     }
 
@@ -1162,14 +1156,6 @@ sealed class PipForm : Form
     static string Resume(string? v, int t, int vol, bool muted) => ResumeJs.Replace("$ID", JsonSerializer.Serialize(v))
         .Replace("$T", t.ToString()).Replace("$V", vol.ToString()).Replace("$M", muted ? "true" : "false");
 
-    // From Music to a video YouTube had to reload for: its position and volume once the page has it.
-    async Task RestoreAsync()
-    {
-        if (pendingRestore is not { } r) return;
-        pendingRestore = null;
-        Program.Log($"restore {r.v} t={r.t} vol={r.vol} muted={r.muted}: {(await EvalAsync(Resume(r.v, r.t, r.vol, r.muted)))?.GetString()}");
-    }
-
     // Same video and position, in YouTube Music (a plain small window, no fullscreen there) or back in the YouTube PIP.
     async Task ToggleMusicAsync()
     {
@@ -1219,9 +1205,8 @@ sealed class PipForm : Form
     internal static bool SameTrack(string? a, string? b, (string Asked, string Got)? music) => a != null && b != null
         && (a == b || music is { } m && (m.Asked == a && m.Got == b || m.Asked == b && m.Got == a));
 
-    // YouTube shows at once and Music plays on until YouTube does, then stops. The same video: the page as it was left, at
-    // Music's position. Another: YouTube's in-page navigation, as from the list (a reload only if that fails).
-    // url: a YouTube page Music linked to, opened in the big window.
+    // YouTube shows at once and Music plays on until YouTube does, then stops. YouTube's video as it was left, at Music's
+    // position if Music played the same track. url: a YouTube page Music linked to, opened in the big window.
     async Task LeaveMusicAsync(string? url)
     {
         if (mode != Mode.Music) return;
@@ -1242,27 +1227,11 @@ sealed class PipForm : Form
         var ytId = Program.VideoId(src) ?? Program.ShortsId(src);
         bool same = SameTrack(v, ytId);
         Program.Log($"out of Music: v={v} t={t} vol={vol} muted={muted}, YouTube {(same ? "has it" : "at " + src)}, left in {backMode}");
-        string? r = null;
-        if (v == null || same)
-        {
-            SetMode(backMode);
-            // no track in Music: the video as it was left, playing again if it was in the PIP
-            if (v != null || backMode != Mode.Browse) r = (await EvalAsync(v != null ? Resume(ytId, t, vol, muted) : Resume(null, -1, -1, false)))?.GetString();
-        }
-        else
-        {
-            retrying = true;  // keeps the PIP while it is not fullscreen; SourceChanged covers it and presses fullscreen
-            SetMode(monitorFull ? Mode.Monitor : Mode.Pip);
-            await EvalAsync(InPageWatchJs.Replace("$ID", JsonSerializer.Serialize(v)).Replace("$LIST", "null").Replace("$INDEX", "0"));
-            if ((await EvalAsync("new URLSearchParams(location.search).get('v')"))?.ToString() == v)
-                r = (await EvalAsync(Resume(v, t, vol, muted)))?.GetString();
-            else
-            {
-                pendingRestore = (v, t, vol, muted);
-                lastVideo = null;
-                web.CoreWebView2.Navigate($"https://www.youtube.com/watch?v={v}");
-            }
-        }
+        SetMode(backMode);
+        // Another track in Music (Music's own pick, or its back button to an earlier visit's song) is not taken along: the
+        // video as it was left, playing again if it was in the PIP (user, 2026-10-10)
+        string? r = same ? (await EvalAsync(Resume(ytId, t, vol, muted)))?.GetString()
+            : backMode != Mode.Browse ? (await EvalAsync(Resume(null, -1, -1, false)))?.GetString() : null;
         HandOver(gen, Mode.Browse, web.CoreWebView2, m);
         Program.Log($"out of Music: {r ?? "nothing to wait for"}; handed over at {sw.ElapsedMilliseconds}ms");
     }
