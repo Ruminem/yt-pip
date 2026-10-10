@@ -1,3 +1,4 @@
+- 사용자 확인(0.1.33 설치본): Music 이 곡을 넘긴 뒤 뒤로 한 번에 YouTube, 라이브 ↔ Music 오가도 안 멈춤, 전환 때 소리 안 겹침, Shorts 왼쪽 댓글 가로 스크롤바 없음 — 다 됨. 남은 것 없음
 - 0.1.33 릴리스(푸시부터 1분 10초)·설치본 교체함(아래 줄). 정책 검토(v0.1.32..HEAD): Music 의 뒤로가기 처리뿐, 걸리는 것 없음. 다음: 사용자가 Music 이 곡을 넘긴 뒤 뒤로 한 번에 YouTube 로 오는지 확인
 - 그 뒤 (릴리스 전): Music 에서 다음 곡으로 넘어간 뒤 뒤로가기가 YouTube 가 아니라 이전 곡으로 가던 것(사용자 신고 — 곡마다 Music 기록이 쌓임, 두 번 눌러야 YouTube). MusicBackJs: music.youtube.com 의 /watch 에서 뒤로 traverse 면 navigate 이벤트를 막고 music:back → LeaveMusicAsync. 시험 backcatch.ps1(YouTube 페이지로 흉내): 마우스 뒤로 버튼은 매번 cancelable·userInitiated, 연속 두 번도 막힘. Alt+← 는 이 웹뷰에서 원래 뒤로가 안 됨. musicback.ps1(Music 자리의 musicpremium 에 조건 끈 스크립트): 뒤로 → PIP 로 복귀, Music 페이지는 그대로. 진짜 Music 의 /watch 에서는 로그인한 설치본에서 확인(직접). 정책: 내비게이션뿐, 걸리는 것 없음
 - 0.1.32 릴리스(Actions 1분 남짓, 푸시부터 1분 10초)·설치본 교체함(아래 줄). 정책 검토(v0.1.31..HEAD): 플레이어 위치·볼륨 API 를 부르는 조건만 바뀜, 걸리는 것 없음. 다음: 사용자가 라이브 ↔ Music 을 몇 번 오가도 멈추지 않는지 확인
