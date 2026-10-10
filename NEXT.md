@@ -1,5 +1,6 @@
 - 여기까지 됨 (2026-10-10, 릴리스 전): '큰 창으로'를 몇 번 누르다 큰 창에 Shorts 가 전체화면 모양(위 막대 없음)으로 남던 것을 고침. 원인: 큰 창의 Shorts 에서 페이지 전체화면(숨은 '전체 화면(f)' 버튼·더블클릭)이 켜지면 호스트가 PIP 로 바꾸고, 그 상태로 '큰 창으로'를 누르면 페이지 전체화면이 큰 창으로 따라옴(시험 사본에서 버튼 .click() 으로 재현, 사용자 로그 09:58:39 True). 이제 Shorts 페이지의 전체화면은 바로 끄고, 큰 창에서였으면 PIP 로 감. 시험 shfs.ps1(scratchpad)
-- 다음 할 것: 0.1.16 릴리스 (시키면). 실기기 확인은 아래 그대로 (직접)
+- 그 뒤 (같은 날, public 전환 준비): README.md(영어·한국어) 추가, 릴리스 제목을 상표를 이름처럼 쓰지 않게 `yt-pip <버전>` 으로 — release.yml 과 기존 릴리스 16개(gh release edit). 로컬 릴리스 때도 --title "yt-pip <버전>". 커밋 이메일 바꾸기(force push)는 보류: pssin1@naver.com 이 이미 다른 public 저장소 커밋에 공개돼 있음
+- 다음 할 것: public 전환은 사용자가 GitHub 설정에서 (직접). 전환하면 프로필 README(C:\dev\Ruminem)의 Other / 그 밖에 에 yt-pip 항목 추가. 0.1.16 릴리스는 시키면 — public 이면 Actions 로 다시 됨. 실기기 확인은 아래 그대로 (직접)
 - 막힌 것: 없음
 
 - 여기까지 됨 (2026-10-09 — 0.1.14 로컬 릴리스): GitHub Actions 가 이달 무료 제공량 소진(추정, 사용액 $21.17 = 제공 할인액)으로 잡을 안 띄워서 release.yml 과 같은 단계를 PC 에서 함 — 같은 publish 옵션으로 빌드·selftest, PC rclone(v1.75.1, 원격 gdrive)으로 기존 exe 덮어쓰고 yt-pip-0.1.14.exe 로 이름 바꿈(드라이브 ID 그대로), gh release create v0.1.14(대상 5c60a17, notes 는 CHANGELOG 항목). 11월 1일 제공량이 다시 차기 전 릴리스도 이렇게 함

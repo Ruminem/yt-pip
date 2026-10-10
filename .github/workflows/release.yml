@@ -71,5 +71,5 @@ jobs:
       - if: steps.v.outputs.new
         run: |
           $v = '${{ steps.v.outputs.v }}'
-          gh release create "v$v" --target $env:GITHUB_SHA --title "YouTube PIP $v" --notes-file "$env:RUNNER_TEMP\notes.md" out\yt-pip.exe LICENSE THIRD_PARTY_NOTICES.md
+          gh release create "v$v" --target $env:GITHUB_SHA --title "yt-pip $v" --notes-file "$env:RUNNER_TEMP\notes.md" out\yt-pip.exe LICENSE THIRD_PARTY_NOTICES.md
           if ($LASTEXITCODE) { throw 'Release failed.' }
