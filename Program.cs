@@ -503,6 +503,16 @@ sealed class PipForm : Form
         })
         """;
 
+    // Back from Music's player goes to YouTube, not through the tracks Music played since (each next track is a history
+    // entry: back went to the one before, user 2026-10-10). The mouse's back button is cancelable here every press.
+    const string MusicBackJs = """
+        if (location.host === 'music.youtube.com') navigation.addEventListener('navigate', e => {
+          if (e.navigationType !== 'traverse' || location.pathname !== '/watch' || e.destination.index >= navigation.currentEntry.index) return;
+          if (e.cancelable) e.preventDefault();
+          chrome.webview.postMessage('music:back');
+        });
+        """;
+
     // The side switched away from stops (its own pause, as its button does). Shorts too.
     const string PauseJs = "for (const p of document.querySelectorAll('#movie_player, #shorts-player')) p.pauseVideo?.()";
 
@@ -818,11 +828,12 @@ sealed class PipForm : Form
     {
         await music.EnsureCoreWebView2Async(env);
         var c = music.CoreWebView2;
-        await SetUpAsync(c, MenuJs);
+        await SetUpAsync(c, MenuJs, MusicBackJs);
         c.WebMessageReceived += async (_, e) =>
         {
             var msg = e.TryGetWebMessageAsString();
             if (msg == "menu:music") await ToggleMusicAsync();
+            else if (msg == "music:back") await LeaveMusicAsync(null);
             else if (msg?.StartsWith("log:") == true) Program.Log(msg[4..Math.Min(msg.Length, 600)].ReplaceLineEndings(" "));
         };
         // Back from Music's first page reaches the blank page under it: that is the way back to YouTube. A link to YouTube
