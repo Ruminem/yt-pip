@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.20 — 2026-10-10
+
+- The PIP keeps its top-left corner when it changes shape between a Short and another video, moving only to stay on the screen. Before, a PIP in the lower half of the screen grew upward from its bottom edge.
+- Opening a playlist from YouTube's ☰ menu in the list shows that playlist. Signed in, YouTube resumed it on one of its videos instead, which then played in the PIP.
+- A Short reached from another video starts with its comments closed. YouTube reopened the comments last left open; the next Short by the wheel still keeps them.
+- The log records what a panel opened over the fullscreen video holds, to find why the title opened an empty one.
+
+**한국어**
+
+- Shorts 와 일반 영상 사이에서 PIP 모양이 바뀔 때 왼쪽 위 모서리를 그대로 둠. 화면을 벗어날 때만 옮김. 전에는 화면 아래쪽 반에 있는 PIP 가 아래 변을 기준으로 위로 늘어났음.
+- 목록에서 YouTube ☰ 메뉴의 재생목록을 열면 그 재생목록이 보임. 로그인 상태에서는 YouTube 가 재생목록의 한 영상으로 이어 보기를 열어 그 영상이 PIP 에서 재생됐음.
+- 다른 영상에서 넘어온 Short 는 댓글창이 닫힌 채로 시작함. YouTube 가 마지막에 열어 둔 댓글창을 다시 열었음. 휠로 넘긴 다음 Short 는 지금처럼 댓글창을 유지함.
+- 전체화면 영상 위에 열린 패널의 구성을 로그에 남김. 제목을 누르면 빈 패널이 열리는 원인을 찾기 위한 것임.
+
 ## 0.1.19 — 2026-10-10
 
 - A Short's comments beside the PIP stay when the window is resized smaller, instead of disappearing.
