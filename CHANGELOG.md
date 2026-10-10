@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.23 — 2026-10-10
+
+- The app no longer hides product cards or the shopping panel. CSS of your own for the pages can go in `%LOCALAPPDATA%\yt-pip\user.css`, read when the app starts; the previous hiding is the snippet to put there if you want it back.
+- Going back from YouTube Music to a YouTube video returns the window to the PIP, and to the big window for other pages. Before, it stayed in Music mode. Going forward into Music switches to Music mode.
+
+**한국어**
+
+- 앱이 제품 카드와 쇼핑 패널을 더는 숨기지 않음. 페이지에 넣을 자기 CSS 는 `%LOCALAPPDATA%\yt-pip\user.css` 에 두면 앱을 켤 때 읽음. 예전처럼 숨기려면 그 선택자를 이 파일에 넣으면 됨.
+- YouTube Music 에서 뒤로 가기로 YouTube 영상에 오면 창이 PIP 로, 다른 페이지면 큰 창으로 돌아감. 전에는 Music 모드로 남았음. 앞으로 가기로 Music 에 들어가면 Music 모드로 바뀜.
+
 ## 0.1.22 — 2026-10-10
 
 - Picking in the list the playlist the PIP already plays from shows that playlist and leaves the video playing. Before, a click after hovering landed on YouTube's preview and started the playlist's first video.
