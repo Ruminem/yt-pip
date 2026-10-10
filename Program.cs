@@ -383,6 +383,16 @@ sealed class PipForm : Form
     // In the list panel: a picked video plays in the PIP instead of opening in the panel. One picked in a
     // playlist plays on through it there, and the panel shows that playlist.
     const string ListJs = """
+        // ≡'s "Shorts" has no link, only YouTube's endpoint (/shorts/, 2026-10-10), and opened in the panel: into the PIP
+        // too. Before YouTube's own handler on the entry.
+        addEventListener('click', e => {
+          const g = e.target.closest?.('ytd-guide-entry-renderer, ytd-mini-guide-entry-renderer'), d = g && (g.data || g.__data?.data);
+          const r = (d?.navigationEndpoint || d?.serviceEndpoint)?.reelWatchEndpoint;
+          if (!r) return;
+          e.preventDefault(); e.stopImmediatePropagation();
+          document.querySelector('tp-yt-app-drawer#guide')?.close?.();
+          chrome.webview.postMessage('https://www.youtube.com/shorts/' + (r.videoId || ''));
+        }, true);
         addEventListener('click', e => {
           const a = e.target.closest && e.target.closest('a[href*="/watch?v="], a[href*="/shorts/"]');
           if (!a) return;
@@ -1178,6 +1188,14 @@ sealed class PipForm : Form
             var r = await EvalAsync(InPageShortsJs.Replace("$ID", JsonSerializer.Serialize(sid)));
             Program.Log($"from list short {sid}: in-page {r}");
             if (r?.ValueKind != JsonValueKind.True) web.CoreWebView2.Navigate($"https://www.youtube.com/shorts/{sid}");
+            return;
+        }
+        if (url == "https://www.youtube.com/shorts/")  // the Shorts feed (≡'s entry): YouTube picks the first one
+        {
+            if (mode != Mode.Pip) return;
+            retrying = true;
+            Program.Log("from list shorts feed");
+            web.CoreWebView2.Navigate(url);
             return;
         }
         bool fromShorts = OnShorts;
