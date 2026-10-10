@@ -1,12 +1,12 @@
 - 여기까지 됨 (2026-10-10, 릴리스 전): '큰 창으로'를 몇 번 누르다 큰 창에 Shorts 가 전체화면 모양(위 막대 없음)으로 남던 것을 고침. 원인: 큰 창의 Shorts 에서 페이지 전체화면(숨은 '전체 화면(f)' 버튼·더블클릭)이 켜지면 호스트가 PIP 로 바꾸고, 그 상태로 '큰 창으로'를 누르면 페이지 전체화면이 큰 창으로 따라옴(시험 사본에서 버튼 .click() 으로 재현, 사용자 로그 09:58:39 True). 이제 Shorts 페이지의 전체화면은 바로 끄고, 큰 창에서였으면 PIP 로 감. 시험 shfs.ps1(scratchpad)
 - 그 뒤 (같은 날, public 전환 준비): README.md(영어·한국어) 추가, 릴리스 제목을 상표를 이름처럼 쓰지 않게 `yt-pip <버전>` 으로 — release.yml 과 기존 릴리스 16개(gh release edit). 로컬 릴리스 때도 --title "yt-pip <버전>". 커밋 이메일 바꾸기(force push)는 안 하기로 함: pssin1@naver.com 이 이미 다른 public 저장소 커밋 976건에 공개돼 있어 효과가 없음. 라이선스는 Apache-2.0 그대로(비상업 라이선스 검토 후 유지)
 - public 전환함(사용자). 프로필 README 의 Other / 그 밖에 에 yt-pip 추가(Ruminem 0f0ba60). Actions 가 다시 돎 — public 저장소는 기본 러너가 무료라 결제 막힘이 풀림, workflow_dispatch 로 확인(태그가 있어 건너뛰고 성공). 그래서 아래 로컬 릴리스 절차는 이제 안 씀 — csproj 버전 올려 푸시하면 됨
-- 0.1.18 릴리스(Actions, 약 1분 15초)·설치본 교체함 — 아래 항상 위 수정
+- 0.1.18 릴리스(Actions, 약 1분 15초)·설치본 교체함 — 아래 항상 위 수정. 교체 뒤 첫 클릭에 항상 위가 걸리는 것 사용자가 확인함
 - 그 뒤: 설치본 교체로 다시 켜면 '항상 위'가 체크돼 있어도 안 먹던 것 고침. 원인: Windows 는 그 프로세스가 전경을 가질 권한이 있을 때만 topmost 를 걸어 주고, 없으면 SetWindowPos 가 성공을 돌려주면서 무시함(문서에 있음). 내 셸에서 띄운 창은 권한이 없어 WS_EX_TOPMOST 없이 뜸 — 시험 사본에서 생성 직후·Shown 뒤 비트 0 확인, 사용자가 메뉴로 껐다 켜면(클릭이 권한을 줌) 걸림. 이제 창이 활성화될 때마다(첫 클릭) 다시 검. 활성화 경로는 사용자 포커스를 뺏어야 해서 시험 사본으로 못 봄
 - 0.1.17 릴리스(Actions, 1분 14초)·설치본 교체함 — 아래 글래스
 - 그 뒤: Shorts 댓글창 글래스 — MenuJs 가 body 맨 앞에 16x28 캔버스(.yt-pip-glass)를 두고 댓글창이 보이는 동안(-ready) 초당 4번 #shorts-player video 를 그림, CSS 로 댓글창 자리에 늘려 blur(24px)·brightness(.45)·saturate(1.4), 댓글창 배경(#anchored-panel·#content·입력칸 #header)은 투명. YouTube 앰비언트 캔버스(#shorts-cinematic-container)를 늘려 쓰려 했으나 조상에 묶여 position: fixed 가 안 먹음. 닫으면 그리기 멈춤(clearRect 뒤 2초 평균 0으로 확인). 왼쪽 댓글은 시험 사본이 늘 오른쪽이라 안 봄
 - 0.1.16 릴리스(Actions, 1분 24초)·설치본 교체함 — Shorts 전체화면 수정(b34dab1)
-- 다음 할 것: 다음 릴리스·설치본 교체 뒤 창을 한 번 클릭하면 항상 위가 걸리는지 확인 (직접). 그리고 Shorts 에서 더블클릭(전체화면) 뒤 큰 창 버튼, 아래 것들
+- 다음 할 것: Shorts 에서 더블클릭(전체화면) 뒤 큰 창 버튼, 아래 것들
 - 막힌 것: 없음
 
 - 여기까지 됨 (2026-10-09 — 0.1.14 로컬 릴리스): GitHub Actions 가 이달 무료 제공량 소진(추정, 사용액 $21.17 = 제공 할인액)으로 잡을 안 띄워서 release.yml 과 같은 단계를 PC 에서 함 — 같은 publish 옵션으로 빌드·selftest, PC rclone(v1.75.1, 원격 gdrive)으로 기존 exe 덮어쓰고 yt-pip-0.1.14.exe 로 이름 바꿈(드라이브 ID 그대로), gh release create v0.1.14(대상 5c60a17, notes 는 CHANGELOG 항목). 11월 1일 제공량이 다시 차기 전 릴리스도 이렇게 함
