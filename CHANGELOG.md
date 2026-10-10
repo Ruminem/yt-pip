@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.33 — 2026-10-10
+
+- Pressing back on YouTube Music's player goes straight back to YouTube, even after Music has moved on to other tracks. Before, it went back through each of those tracks first.
+
+**한국어**
+
+- YouTube Music 재생 화면에서 뒤로가기를 누르면 Music 이 다른 곡으로 넘어간 뒤라도 바로 YouTube 로 돌아감. 전에는 그동안 재생된 곡을 하나씩 거슬러 올라간 뒤에야 돌아갔음.
+
 ## 0.1.32 — 2026-10-10
 
 - Switching between YouTube and YouTube Music carries the position and volume over only when both sides play the very same video. When Music plays its own track for a video's song, neither side is moved, so a live stream no longer gets sent back to its start and keeps loading.
