@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.35 — 2026-10-10
+
+- Going back to a video, from a Short or another video, picks it up where you left it instead of starting it over. If an ad plays first, the jump comes after it.
+- The watch list's search box stays open at any width instead of folding into a magnifier icon, and the logo no longer squeezes it shut; the logo shows only while there is room to type.
+
+**한국어**
+
+- 쇼츠나 다른 영상에서 뒤로가기로 돌아오면 처음부터가 아니라 보던 자리부터 이어서 재생함. 광고가 먼저 나오면 광고가 끝난 뒤에 넘어감.
+- 볼 목록 검색창이 폭과 상관없이 늘 펼쳐져 있고, 돋보기 아이콘으로 접히거나 로고에 눌려 입력칸이 없어지지 않음. 로고는 입력할 자리가 남을 때만 보임.
+
 ## 0.1.34 — 2026-10-10
 
 - The YouTube logo is back at the top of the watch list, so one click takes the list to YouTube's home. It hides only when the list is too narrow for it to fit beside the buttons on the right.
