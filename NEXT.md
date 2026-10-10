@@ -3,7 +3,7 @@
 - public 전환함(사용자). 프로필 README 의 Other / 그 밖에 에 yt-pip 추가(Ruminem 0f0ba60). Actions 가 다시 돎 — public 저장소는 기본 러너가 무료라 결제 막힘이 풀림, workflow_dispatch 로 확인(태그가 있어 건너뛰고 성공). 그래서 아래 로컬 릴리스 절차는 이제 안 씀 — csproj 버전 올려 푸시하면 됨
 - 그 뒤 (릴리스 전): Shorts ↔ 일반 영상으로 PIP 모양이 바뀔 때 왼쪽 위 모서리를 그대로 둠(사용자 요청). 전에는 가까운 화면 모서리를 붙들어 아래쪽 반에 있는 PIP 는 아래 변 기준으로 늘고 줄었음. 화면을 벗어날 때만 밀어 넣음. selftest 에 Refit 검사 셋, 옛 규칙을 넣으면 셋 다 실패하는 것 확인
 - 작업 표시줄 수정(0.1.19)은 사용자가 확인함
-- 아직: 즐겨찾기 재생목록에서 영상 골라 보고 이전으로 갔다가 다시 목록에 들어가면 목록의 다른 영상이 재생됨(사용자 로그: 목록 패널이 스스로 watch?v=…&list=…&index=8/16/24/36 으로 가고 SourceChanged 경로가 PIP 로 재생). 로그인 안 한 시험 사본으로는 재현 안 됨 — 어떻게 다시 들어갔는지 사용자에게 물음
+- 그 뒤 (릴리스 전): ① ≡ 메뉴의 재생목록을 누르면 목록의 다른 영상이 재생되던 것 고침 — 로그인하면 그 항목이 목록 패널을 이어 보기 watch?v=…&list=…&index=N 으로 보내고(사용자 로그), 클릭 아닌 경로(SourceChanged)가 그걸 PIP 로 틀었음. 이제 재생목록 페이지로 바꿔 보여 줌(location.replace, RD 믹스 제외). 그 재생목록 페이지 자체에서 열린 것(셔플 버튼일 수 있음)은 그대로 재생. 시험 plresume.ps1(yt-navigate 로 흉내) ② Shorts 에서 댓글을 연 채 일반 영상 → 다른 Short 로 가면 YouTube 가 댓글을 다시 펼치던 것: Short 에 들어올 때 3초 안에 펼쳐진 패널을 닫음(휠로 다음 Short 는 그대로, 사용자가 클릭하면 멈춤). 시험 shcmtnext.ps1(고치기 전 EXPANDED 재현, 뒤 HIDDEN), shcmtpip.ps1 휠 유지 확인 ③ 전체화면에서 제목을 누르면 빈 패널: YouTube 가 '설명' 패널을 여는 것. 로그인 안 한 시험 사본에선 내용이 다 보여 재현 못 함 — 열린 패널 구성을 log.txt 에 'fullscreen panel …' 로 남기게 함. 사용자 화면에서 한 번 열고 로그를 봐야 함
 - 0.1.19 릴리스(Actions, 약 1분 30초)·설치본 교체함 — 아래 두 수정
 - 그 뒤: ① Shorts 댓글창을 연 채 창을 줄이면 댓글창이 숨던 것 고침 — 펼칠 때 "자리가 났나"(innerWidth >= vw+359) 검사가 열린 뒤에도 매번 돌아 줄이면 실패함. 이제 한 번 보이면 닫힐 때까지 보임. 시험 shcmtresize.ps1(scratchpad, -40/-40/+80/+120) ② 모니터 전체 화면에서 작업 표시줄이 안 내려가던 것: Windows 가 전체화면으로 안 봤음(사용자 화면에 playroom 오버레이가 떠 있었음 — 그건 SHQueryUserNotificationState 가 전체화면이면 숨음). ITaskbarList2::MarkFullscreenWindow 로 알려 주게 함(Chromium 방식). 실제 효과는 사용자 화면에서만 보임 — 미확인
 - 0.1.18 릴리스(Actions, 약 1분 15초)·설치본 교체함 — 아래 항상 위 수정. 교체 뒤 첫 클릭에 항상 위가 걸리는 것 사용자가 확인함
@@ -11,7 +11,7 @@
 - 0.1.17 릴리스(Actions, 1분 14초)·설치본 교체함 — 아래 글래스
 - 그 뒤: Shorts 댓글창 글래스 — MenuJs 가 body 맨 앞에 16x28 캔버스(.yt-pip-glass)를 두고 댓글창이 보이는 동안(-ready) 초당 4번 #shorts-player video 를 그림, CSS 로 댓글창 자리에 늘려 blur(24px)·brightness(.45)·saturate(1.4), 댓글창 배경(#anchored-panel·#content·입력칸 #header)은 투명. YouTube 앰비언트 캔버스(#shorts-cinematic-container)를 늘려 쓰려 했으나 조상에 묶여 position: fixed 가 안 먹음. 닫으면 그리기 멈춤(clearRect 뒤 2초 평균 0으로 확인). 왼쪽 댓글은 시험 사본이 늘 오른쪽이라 안 봄
 - 0.1.16 릴리스(Actions, 1분 24초)·설치본 교체함 — Shorts 전체화면 수정(b34dab1)
-- 다음 할 것: 재생목록 재진입 버그 재현 경로 받기. 그리고 Shorts 에서 더블클릭(전체화면) 뒤 큰 창 버튼, 아래 것들
+- 다음 할 것: 제목 빈 패널 로그 받기. 새 설치본에서 제목을 한 번 누르고 log.txt 의 'fullscreen panel' 줄을 봄. 그리고 Shorts 에서 더블클릭(전체화면) 뒤 큰 창 버튼, 아래 것들
 - 막힌 것: 없음
 
 - 여기까지 됨 (2026-10-09 — 0.1.14 로컬 릴리스): GitHub Actions 가 이달 무료 제공량 소진(추정, 사용액 $21.17 = 제공 할인액)으로 잡을 안 띄워서 release.yml 과 같은 단계를 PC 에서 함 — 같은 publish 옵션으로 빌드·selftest, PC rclone(v1.75.1, 원격 gdrive)으로 기존 exe 덮어쓰고 yt-pip-0.1.14.exe 로 이름 바꿈(드라이브 ID 그대로), gh release create v0.1.14(대상 5c60a17, notes 는 CHANGELOG 항목). 11월 1일 제공량이 다시 차기 전 릴리스도 이렇게 함

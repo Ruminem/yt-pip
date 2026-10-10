@@ -220,7 +220,7 @@ sealed class PipForm : Form
     const string MenuJs = """
         (() => {
           const isMusic = location.host === 'music.youtube.com';
-          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, musicItem, listItem, ctls, layout = '', panel = false, vw = 0, side = null, shown = false, asked, big, glass, paint = 0;
+          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, musicItem, listItem, ctls, layout = '', panel = false, vw = 0, side = null, shown = false, asked, big, glass, paint = 0, lastShort = '', fresh = 0, fsPanel = '';
           // The host's picks in the player's own controls, before autoplay/subtitles/settings (the left-edge menu shows only
           // while paused): 볼 목록 (PIP only), YouTube Music, 항상 위. Icons drawn here, each a set of path outlines.
           const ctlButton = (cmd, ...ds) => {
@@ -239,7 +239,14 @@ sealed class PipForm : Form
             // lays out for it and asks for the room (placed), the window widens. Through that, and back when it closes,
             // the video keeps its width (vw, CSS px) and the panel shows once it has its room: nothing overlaps or jumps.
             const shorts = !isMusic && state.mode === 'pip' && location.pathname.startsWith('/shorts/'), root = document.documentElement;
-            const open = shorts && !!document.querySelector('ytd-shorts #anchored-panel ytd-engagement-panel-section-list-renderer[visibility=ENGAGEMENT_PANEL_VISIBILITY_EXPANDED]');
+            // A Short comes in with its panel closed: YouTube opens again the comments last left open, also after other
+            // videos (2026-10-10). Not the next Short by the wheel, where YouTube keeps them; nor once the user clicks.
+            if (shorts && !root.classList.contains('yt-pip-shorts') && location.pathname !== lastShort) fresh = Date.now();
+            if (shorts) lastShort = location.pathname;
+            const expanded = 'ytd-shorts #anchored-panel ytd-engagement-panel-section-list-renderer[visibility=ENGAGEMENT_PANEL_VISIBILITY_EXPANDED]';
+            const closing = shorts && Date.now() - fresh < 3000 && document.querySelector(expanded + ' #visibility-button button');
+            if (closing) closing.click();
+            const open = shorts && !closing && !!document.querySelector(expanded);
             if (!shorts) vw = 0;
             else if (open && !vw) vw = innerWidth;
             if (open && state.comments) side = state.comments;
@@ -286,6 +293,15 @@ sealed class PipForm : Form
               onTop.querySelectorAll('path')[1].setAttribute('fill', state.onTop ? 'rgba(255,255,255,.45)' : 'none');  // filled while on
               for (const b of ctls) b.setAttribute('aria-label', b.title);
             }
+            // For the log: what a panel over the fullscreen video is made of, 2 s after it opens (the title opened an empty
+            // one for the user, signed in; signed out it shows the description, 2026-10-10)
+            const flexy = !shorts && document.querySelector('ytd-watch-flexy[fullscreen]');
+            const fsKey = flexy ? [...flexy.attributes].map(a => a.name).filter(n => n.includes('panel')).join(' ') : '';
+            if (fsKey !== fsPanel && (fsPanel = fsKey)) setTimeout(() => {
+              const desc = e => `${e.tagName.toLowerCase()}${e.getAttribute('target-id') ? '#' + e.getAttribute('target-id') : ''} ${e.hidden ? 'hidden ' : ''}${getComputedStyle(e).display} ${Math.round(e.getBoundingClientRect().width)}x${Math.round(e.getBoundingClientRect().height)} text ${e.innerText.trim().length}`;
+              const kids = [...document.querySelectorAll('#panels-full-bleed-container > *, ytd-watch-flexy[fullscreen] ytd-engagement-panel-section-list-renderer[visibility=ENGAGEMENT_PANEL_VISIBILITY_EXPANDED]')];
+              chrome.webview.postMessage(`log:fullscreen panel [${fsKey}] ` + kids.filter(e => e.getBoundingClientRect().width).map(desc).join(' | '));
+            }, 2000);
             if (!host) return;
             const v = document.querySelector(shorts ? '#shorts-player video' : '#movie_player video') || document.querySelector('video');
             // in Music always: there it is the only way back besides the title bar menu
@@ -346,6 +362,7 @@ sealed class PipForm : Form
             update();
           };
           chrome.webview.addEventListener('message', e => { state = e.data; update(); });
+          addEventListener('click', e => { if (e.isTrusted) fresh = 0; }, true);
           for (const t of ['play', 'playing', 'pause', 'ended']) document.addEventListener(t, update, true);
           document.addEventListener('fullscreenchange', update);
           addEventListener('resize', update);
@@ -582,6 +599,7 @@ sealed class PipForm : Form
                 case "panel:closed": HideComments(); return;
                 case "panel:placed": PlaceComments(); return;
                 case not null when msg.StartsWith("progress:"): list.CoreWebView2?.PostWebMessageAsString(msg); return;
+                case not null when msg.StartsWith("log:"): Program.Log(msg[4..Math.Min(msg.Length, 600)].ReplaceLineEndings(" ")); return;
                 case not null when msg.StartsWith("ratio:"):
                 {
                     var wh = msg[6..].Split('x');
@@ -840,6 +858,7 @@ sealed class PipForm : Form
     // Once: from ShowList, or ahead of it after the PIP's fullscreen (the home page takes ~2 s to load).
     Task InitListAsync() => listInit ??= InitListCoreAsync();
     Task? listInit;
+    string? listFrom;  // the list panel's page before a watch page opened in it
 
     async Task InitListCoreAsync()
     {
@@ -856,7 +875,18 @@ sealed class PipForm : Form
         list.CoreWebView2.SourceChanged += async (_, _) =>
         {
             var url = list.CoreWebView2.Source;
-            if (!Program.IsWatchUrl(url)) return;
+            var from = listFrom;
+            if (!Program.IsWatchUrl(url)) { listFrom = url; return; }
+            // Signed in, ≡'s playlist entries open the playlist on a watch page, resuming it (2026-10-10: another video
+            // played each time the user went back to a playlist). The playlist instead, in place of that page. From the
+            // playlist's own page it plays, as its shuffle button may (no link to catch there).
+            if (Program.WatchParam(url, "list") is { } pl && !pl.StartsWith("RD") && System.Text.RegularExpressions.Regex.IsMatch(pl, "^[A-Za-z0-9_-]+$")
+                && !System.Text.RegularExpressions.Regex.IsMatch(from ?? "", $"[?&]list={pl}(&|$)"))
+            {
+                Program.Log($"list opened {url}: playlist shown");
+                await list.CoreWebView2.ExecuteScriptAsync($"location.replace('/playlist?list={pl}')");
+                return;
+            }
             Program.Log($"list opened {url}");
             await list.CoreWebView2.ExecuteScriptAsync(ListBackJs);
             await PlayFromListAsync(url);
