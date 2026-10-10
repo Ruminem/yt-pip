@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.29 — 2026-10-10
+
+- YouTube Music now opens in its own view beside YouTube, so switching either way no longer reloads a page. Going back to YouTube shows the video right away and resumes it at Music's position.
+- While switching, the side you leave keeps playing until the other side starts, so the sound no longer cuts out.
+- On a Short in the PIP, YouTube's left navigation rail no longer covers the top left of the comments.
+
+**한국어**
+
+- YouTube Music 을 YouTube 옆의 별도 화면에 띄움. 어느 쪽으로 전환해도 페이지를 다시 불러오지 않음. YouTube 로 돌아가면 영상이 곧바로 보이고 Music 에서 듣던 시점부터 이어서 재생됨.
+- 전환하는 동안 떠나는 쪽이 새 쪽이 재생될 때까지 계속 재생돼서 소리가 끊기지 않음.
+- PIP 의 Shorts 에서 YouTube 왼쪽 탐색 막대가 댓글 왼쪽 위를 가리지 않음.
+
 ## 0.1.28 — 2026-10-10
 
 - Switching to YouTube Music closes the watch list panel, so coming back to the PIP no longer opens it again.
