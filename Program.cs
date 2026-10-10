@@ -596,6 +596,8 @@ sealed class PipForm : Form
     readonly System.Windows.Forms.Timer dragTimer = new() { Interval = 10 };
     Size dragOffset;
     bool retrying;
+    (string Video, Bitmap Image)? shot;  // the PIP as it was left for Music (TakeShot)
+    PictureBox? shotBox;
     double aspect = 16.0 / 9;  // width / height of the video playing, from the page
 
     bool wasShorts;  // the last address was a Shorts page: moving on to the next Short leaves the window as it is
@@ -705,12 +707,17 @@ sealed class PipForm : Form
         core.NavigationStarting += (_, e) =>
         {
             if (e.NavigationKind != CoreWebView2NavigationKind.BackOrForward || !Uri.TryCreate(e.Uri, UriKind.Absolute, out var to)) return;
-            if (to.Host == "music.youtube.com" && mode != Mode.Music) { Program.Log($"into Music by history: {e.Uri}"); SetMode(Mode.Music); }
+            if (to.Host == "music.youtube.com" && mode != Mode.Music)
+            {
+                Program.Log($"into Music by history: {e.Uri}");
+                TakeShot(Program.VideoId(core.Source));
+                SetMode(Mode.Music);
+            }
             else if (to.Host == "www.youtube.com" && mode == Mode.Music)
             {
                 Program.Log($"out of Music by history: {e.Uri}");
                 if (Program.VideoId(e.Uri) == null) SetMode(Mode.Browse);
-                else { lastVideo = null; retrying = true; SetMode(Mode.Pip); }
+                else { lastVideo = null; retrying = true; SetMode(Mode.Pip); ShowShot(Program.VideoId(e.Uri)); }
             }
         };
         core.SourceChanged += async (_, _) =>
@@ -759,6 +766,9 @@ sealed class PipForm : Form
             else if (retrying)
             {
                 await EnterFullscreenAsync();
+                // from Music: the page's cover under the picture first, drawing the video now playing, so the masthead
+                // that stays over the fullscreen for a moment does not show either
+                if (shotBox != null) { covered = true; await EvalAsync(CoverJs); DropShot(); }
                 if (covered) await EvalAsync(UncoverJs);
             }
             else if (covered) await EvalAsync(UncoverJs);
@@ -925,6 +935,35 @@ sealed class PipForm : Form
         await EvalAsync($"new Promise(r => {{ const t0 = Date.now(), f = () => Math.abs(innerWidth * devicePixelRatio - {web.Width}) < 2 || Date.now() - t0 > 1000"
             + " ? requestAnimationFrame(() => requestAnimationFrame(r)) : requestAnimationFrame(f); f(); })");
         shot.Dispose();
+    }
+
+    // From Music back to the PIP is a whole page load: some 3 s before the video is fullscreen again, the watch page being
+    // built in the small window meanwhile (2026-10-10; YouTube's no-store keeps it out of the back-forward cache).
+    // The PIP as it was left over it until then, if it is the same video.
+    void TakeShot(string? video)
+    {
+        DropShot();
+        if (!pip || video == null) return;
+        using var now = new Bitmap(ClientSize.Width, ClientSize.Height);
+        using (var g = Graphics.FromImage(now)) { var dc = g.GetHdc(); PrintWindow(Handle, dc, 3); g.ReleaseHdc(dc); }  // client, page included
+        shot = (video, now.Clone(web.Bounds, now.PixelFormat));
+    }
+
+    async void ShowShot(string? video)
+    {
+        if (shot is not { } s || s.Video != video) { DropShot(); return; }
+        var box = shotBox = new PictureBox { Image = s.Image, Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black };
+        Controls.Add(box);
+        box.BringToFront();  // docked last: beside the list like the page
+        await Task.Delay(20000);  // the page never got to fullscreen: the page as it is
+        if (shotBox == box) DropShot();
+    }
+
+    void DropShot()
+    {
+        if (shotBox != null) { Controls.Remove(shotBox); shotBox.Dispose(); shotBox = null; }
+        shot?.Image.Dispose();
+        shot = null;
     }
 
     void HideComments()
@@ -1102,11 +1141,13 @@ sealed class PipForm : Form
             lastVideo = null;
             retrying = true;
             SetMode(Mode.Pip);
+            ShowShot(v);
             web.CoreWebView2.Navigate($"https://www.youtube.com/watch?v={v}&t={t}s");
         }
         else
         {
             // from any mode: the video being watched, or Music's home when there is none (YouTube home, search)
+            TakeShot(v);
             SetMode(Mode.Music);
             if (v != null) pendingRestore = (t, vol, muted);
             web.CoreWebView2.Navigate(v != null ? $"https://music.youtube.com/watch?v={v}" : "https://music.youtube.com/");
@@ -1148,6 +1189,7 @@ sealed class PipForm : Form
     void SetMode(Mode next)
     {
         if (next == mode) return;
+        if (next != Mode.Pip && shotBox != null) DropShot();  // left on the way back from Music
         RememberRect();
         WindowState = FormWindowState.Normal;
         mode = next;
