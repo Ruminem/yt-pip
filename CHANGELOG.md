@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.32 — 2026-10-10
+
+- Switching between YouTube and YouTube Music carries the position and volume over only when both sides play the very same video. When Music plays its own track for a video's song, neither side is moved, so a live stream no longer gets sent back to its start and keeps loading.
+
+**한국어**
+
+- YouTube 와 YouTube Music 을 오갈 때 양쪽이 정확히 같은 영상을 틀 때만 재생 위치와 볼륨을 넘김. Music 이 영상의 노래를 자기 곡으로 틀면 어느 쪽도 건드리지 않음. 그래서 라이브가 방송 처음으로 되감겨 계속 로딩되는 일이 없음.
+
 ## 0.1.31 — 2026-10-10
 
 - Going back from YouTube Music to YouTube shows the video you left, even when Music has moved on to another song (its own pick, or its back button to an earlier song). It resumes from Music's position only when Music was playing the same song.
