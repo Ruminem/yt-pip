@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.25 — 2026-10-10
+
+- Going back from YouTube Music to a YouTube video resumes it instead of starting over: at Music's position and volume if Music was playing the same track, else where the video was left.
+
+**한국어**
+
+- YouTube Music 에서 뒤로 가기로 YouTube 영상에 오면 처음부터 시작하지 않고 이어 봄. Music 에서 같은 곡을 듣고 있었으면 Music 의 위치와 볼륨으로, 아니면 영상을 떠날 때의 위치로.
+
 ## 0.1.24 — 2026-10-10
 
 - Coming back from YouTube Music to the same video, the PIP shows the frame it left on until the video is fullscreen again (about 3 s), instead of the YouTube page loading in the small window.
