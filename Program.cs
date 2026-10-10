@@ -141,6 +141,13 @@ sealed class PipForm : Form
             + 'html.yt-pip-cmts ytd-shorts #anchored-panel > * { height: 100% !important; max-height: none !important; }'
             // no dimming over the video, which also took the wheel from it (the next Short)
             + 'html.yt-pip-shorts ytd-shorts #anchored-panel-scrim { display: none !important; }'
+            // MenuJs's way back to the big window (the Shorts page has no fullscreen to leave): left of YouTube's ⋮, as it looks
+            + '.yt-pip-big { display: none; }'
+            + 'html.yt-pip-shorts .yt-pip-big { display: flex; position: fixed; top: 16px; right: 64px; z-index: 2100; width: 48px; height: 48px; padding: 0; border: 0;'
+            + ' border-radius: 50%; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.3); cursor: pointer; }'
+            + 'html.yt-pip-shorts .yt-pip-big:hover { background: rgba(0, 0, 0, 0.5); }'
+            + 'html.yt-pip-shorts:not(:hover) .yt-pip-big { opacity: 0; transition: opacity 0.2s; }'  // with YouTube's top controls
+            + 'html.yt-pip-cmts:not(.yt-pip-cmts-left) .yt-pip-big { right: calc(100vw - var(--yt-pip-vw) + 64px); }'
             // the wider page gets YouTube's desktop layout, buttons right of the video (under the comments): back over its edge
             + 'html.yt-pip-cmts ytd-shorts .ytReelPlayerOverlayViewModelActionsContainer { position: absolute !important; left: calc(var(--yt-pip-vw) - 72px) !important; top: 0 !important; bottom: 0 !important; }'
             + 'html.yt-pip-cmts ytd-shorts .ytReelPlayerOverlayViewModelMetadataContainer { width: calc(var(--yt-pip-vw) - 72px) !important; }' })));
@@ -206,7 +213,7 @@ sealed class PipForm : Form
     const string MenuJs = """
         (() => {
           const isMusic = location.host === 'music.youtube.com';
-          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, musicItem, listItem, ctls, layout = '', panel = false, vw = 0, side = null, asked;
+          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, musicItem, listItem, ctls, layout = '', panel = false, vw = 0, side = null, asked, big;
           // The host's picks in the player's own controls, before autoplay/subtitles/settings (the left-edge menu shows only
           // while paused): 볼 목록 (PIP only), YouTube Music, 항상 위. Icons drawn here, each a set of path outlines.
           const ctlButton = (cmd, ...ds) => {
@@ -245,6 +252,11 @@ sealed class PipForm : Form
             if (open && state.comments && !ready && asked !== state) chrome.webview.postMessage((asked = state, 'panel:placed'));
             // opened or closed: the host picks a side or narrows the window back
             if (open !== panel) chrome.webview.postMessage((panel = open) ? 'panel:open' : 'panel:closed');
+            if (shorts && !big && document.body) {
+              big = Object.assign(ctlButton('browse', 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'), { className: 'yt-pip-big', title: '큰 창으로' });  // corners spread out
+              big.setAttribute('aria-label', '큰 창으로');
+              document.body.append(big);
+            }
             const group = !isMusic && document.querySelector('#movie_player .ytp-right-controls-left');
             if (group && !ctls) ctls = [
               ctlButton('list', 'M4 5h16v14H4zM14 5v14'),                                               // a window with a panel on its right
@@ -546,6 +558,7 @@ sealed class PipForm : Form
                 case "menu:list": ToggleList(); return;
                 case "menu:music": await ToggleMusicAsync(); return;
                 case "menu:ontop": ToggleOnTop(); return;
+                case "menu:browse": if (pip && OnShorts) SetMode(Mode.Browse); return;  // as leaving fullscreen does on a watch page
                 case "panel:open": ShowComments(); return;
                 case "panel:closed": HideComments(); return;
                 case "panel:placed": PlaceComments(); return;
