@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.22 — 2026-10-10
+
+- Picking in the list the playlist the PIP already plays from shows that playlist and leaves the video playing. Before, a click after hovering landed on YouTube's preview and started the playlist's first video.
+- While a new video gets to the PIP it shows at once: its thumbnail, then the video itself, instead of a blank window or the bare watch page. This also covers the way from a Short to another video.
+- The watch page's top bar and player controls no longer flash over the PIP for about 0.2 s as it goes fullscreen.
+
+**한국어**
+
+- 목록에서 PIP 가 이미 재생 중인 재생목록을 고르면 그 재생목록만 보여 주고 영상은 그대로 둠. 전에는 마우스를 올린 뒤 누르면 클릭이 YouTube 미리보기에 떨어져 재생목록 첫 영상이 틀어졌음.
+- 새 영상이 PIP 로 들어오는 동안 빈 창이나 영상 페이지 대신 썸네일, 이어서 영상 자체를 바로 보여 줌. Short 에서 다른 영상으로 갈 때도 마찬가지임.
+- 전체화면으로 바뀔 때 영상 페이지의 상단 바와 플레이어 컨트롤이 약 0.2초 PIP 위에 비치던 것이 없어짐.
+
 ## 0.1.21 — 2026-10-10
 
 - The Shorts button back to the big window is now a back arrow named 돌아가기, and sits beside YouTube's buttons at the top right instead of over them.
