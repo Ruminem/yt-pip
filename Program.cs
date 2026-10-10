@@ -139,6 +139,13 @@ sealed class PipForm : Form
             + 'html.yt-pip-cmts ytd-shorts #anchored-panel { position: fixed !important; top: 0 !important; height: 100vh !important; width: 360px !important; left: auto !important; right: 0 !important; }'
             + 'html.yt-pip-cmts-left ytd-shorts #anchored-panel { left: 0 !important; right: auto !important; }'
             + 'html.yt-pip-cmts ytd-shorts #anchored-panel > * { height: 100% !important; max-height: none !important; }'
+            // Glass, as YouTube's buttons over the video: the panel see-through over MenuJs's canvas, the video's frame stretched
+            // and blurred behind it. Positioned and first in the body, so the panel (positioned, later) paints over it.
+            + 'html.yt-pip-cmts-ready ytd-shorts :is(#anchored-panel, #anchored-panel #content, #anchored-panel ytd-item-section-renderer #header) { background: transparent !important; }'
+            + '.yt-pip-glass { display: none; }'
+            + 'html.yt-pip-cmts-ready .yt-pip-glass { display: block; position: fixed; top: 0; right: 0; width: 360px; height: 100vh;'
+            + ' transform: scale(1.2); filter: blur(24px) brightness(0.45) saturate(1.4); }'  // scaled: the blur fades its edges
+            + 'html.yt-pip-cmts-left .yt-pip-glass { left: 0; right: auto; }'
             // no dimming over the video, which also took the wheel from it (the next Short)
             + 'html.yt-pip-shorts ytd-shorts #anchored-panel-scrim { display: none !important; }'
             // MenuJs's way back to the big window (the Shorts page has no fullscreen to leave): left of YouTube's ⋮, as it looks
@@ -213,7 +220,7 @@ sealed class PipForm : Form
     const string MenuJs = """
         (() => {
           const isMusic = location.host === 'music.youtube.com';
-          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, musicItem, listItem, ctls, layout = '', panel = false, vw = 0, side = null, asked, big;
+          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, musicItem, listItem, ctls, layout = '', panel = false, vw = 0, side = null, asked, big, glass, paint = 0;
           // The host's picks in the player's own controls, before autoplay/subtitles/settings (the left-edge menu shows only
           // while paused): 볼 목록 (PIP only), YouTube Music, 항상 위. Icons drawn here, each a set of path outlines.
           const ctlButton = (cmd, ...ds) => {
@@ -252,6 +259,12 @@ sealed class PipForm : Form
             if (open && state.comments && !ready && asked !== state) chrome.webview.postMessage((asked = state, 'panel:placed'));
             // opened or closed: the host picks a side or narrows the window back
             if (open !== panel) chrome.webview.postMessage((panel = open) ? 'panel:open' : 'panel:closed');
+            // the panel's glass (PlayStateJs's style): a few pixels of the video, 4 times a second while the panel shows
+            if (ready && !glass && document.body) document.body.prepend(glass = Object.assign(document.createElement('canvas'), { className: 'yt-pip-glass', width: 16, height: 28 }));
+            if (ready !== !!paint) {
+              clearInterval(paint);
+              paint = ready ? setInterval(() => { const v = document.querySelector('#shorts-player video'); if (v?.videoWidth) glass.getContext('2d').drawImage(v, 0, 0, 16, 28); }, 250) : 0;
+            }
             if (shorts && !big && document.body) {
               big = Object.assign(ctlButton('browse', 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'), { className: 'yt-pip-big', title: '큰 창으로' });  // corners spread out
               big.setAttribute('aria-label', '큰 창으로');

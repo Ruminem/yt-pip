@@ -1,6 +1,7 @@
 - 여기까지 됨 (2026-10-10, 릴리스 전): '큰 창으로'를 몇 번 누르다 큰 창에 Shorts 가 전체화면 모양(위 막대 없음)으로 남던 것을 고침. 원인: 큰 창의 Shorts 에서 페이지 전체화면(숨은 '전체 화면(f)' 버튼·더블클릭)이 켜지면 호스트가 PIP 로 바꾸고, 그 상태로 '큰 창으로'를 누르면 페이지 전체화면이 큰 창으로 따라옴(시험 사본에서 버튼 .click() 으로 재현, 사용자 로그 09:58:39 True). 이제 Shorts 페이지의 전체화면은 바로 끄고, 큰 창에서였으면 PIP 로 감. 시험 shfs.ps1(scratchpad)
 - 그 뒤 (같은 날, public 전환 준비): README.md(영어·한국어) 추가, 릴리스 제목을 상표를 이름처럼 쓰지 않게 `yt-pip <버전>` 으로 — release.yml 과 기존 릴리스 16개(gh release edit). 로컬 릴리스 때도 --title "yt-pip <버전>". 커밋 이메일 바꾸기(force push)는 안 하기로 함: pssin1@naver.com 이 이미 다른 public 저장소 커밋 976건에 공개돼 있어 효과가 없음. 라이선스는 Apache-2.0 그대로(비상업 라이선스 검토 후 유지)
 - public 전환함(사용자). 프로필 README 의 Other / 그 밖에 에 yt-pip 추가(Ruminem 0f0ba60). Actions 가 다시 돎 — public 저장소는 기본 러너가 무료라 결제 막힘이 풀림, workflow_dispatch 로 확인(태그가 있어 건너뛰고 성공). 그래서 아래 로컬 릴리스 절차는 이제 안 씀 — csproj 버전 올려 푸시하면 됨
+- 그 뒤 (릴리스 전): Shorts 댓글창 글래스 — MenuJs 가 body 맨 앞에 16x28 캔버스(.yt-pip-glass)를 두고 댓글창이 보이는 동안(-ready) 초당 4번 #shorts-player video 를 그림, CSS 로 댓글창 자리에 늘려 blur(24px)·brightness(.45)·saturate(1.4), 댓글창 배경(#anchored-panel·#content·입력칸 #header)은 투명. YouTube 앰비언트 캔버스(#shorts-cinematic-container)를 늘려 쓰려 했으나 조상에 묶여 position: fixed 가 안 먹음. 닫으면 그리기 멈춤(clearRect 뒤 2초 평균 0으로 확인). 왼쪽 댓글은 시험 사본이 늘 오른쪽이라 안 봄
 - 0.1.16 릴리스(Actions, 1분 24초)·설치본 교체함 — Shorts 전체화면 수정(b34dab1)
 - 다음 할 것: 0.1.16 설치본으로 실기기 확인 (직접) — Shorts 에서 더블클릭(전체화면) 뒤 큰 창 버튼, 그리고 아래 것들
 - 막힌 것: 없음
@@ -8,7 +9,7 @@
 - 여기까지 됨 (2026-10-09 — 0.1.14 로컬 릴리스): GitHub Actions 가 이달 무료 제공량 소진(추정, 사용액 $21.17 = 제공 할인액)으로 잡을 안 띄워서 release.yml 과 같은 단계를 PC 에서 함 — 같은 publish 옵션으로 빌드·selftest, PC rclone(v1.75.1, 원격 gdrive)으로 기존 exe 덮어쓰고 yt-pip-0.1.14.exe 로 이름 바꿈(드라이브 ID 그대로), gh release create v0.1.14(대상 5c60a17, notes 는 CHANGELOG 항목). 11월 1일 제공량이 다시 차기 전 릴리스도 이렇게 함
 - 그 전 (같은 날): Shorts 를 YouTube Shorts 페이지 그대로 9:16 PIP 에서 재생(60bc4fd, 휠로 다음·반복 재생), 댓글은 PIP 옆으로 창을 넓혀 띄움(0e0371c). 댓글을 열 때 좁은 PIP 위에 패널이 겹쳐 깜빡이던 것은 페이지가 배치를 마친 뒤(panel:placed)에 창을 넓히고 그동안 영상 폭(--yt-pip-vw)을 고정·패널은 넓어진 뒤에만 보이게 고침(6977aed, 화면 녹화 cast.mjs 로 전후 비교). 닫을 때는 창이 줄기 전 약 50ms 오른쪽이 빈 검은 띠로 남음 — 없애려면 닫는 순서를 바꿔야 함
 - 다음 할 것: 0.1.14 설치본으로 실기기 확인 (직접, 설치본은 교체함). 확인할 것: 진짜 휠 한 칸, 영상 드래그, 아이콘, 오른쪽 공간 없을 때 댓글 왼쪽, 그리고 아래 셋
-- 아이디어 (사용자 메모): Shorts 댓글창 배경을 댓글 여는 버튼처럼 글래스(반투명·블러)로. 버튼은 영상 위라 비치지만 댓글창은 영상 옆이라 뒤가 검은 배경뿐 — 흐리게 늘린 영상(캔버스나 video 사본)을 패널 뒤에 깔아야 효과가 날 것으로 추정, 안 재 봄
+- (됨, 2026-10-10 위) 아이디어 (사용자 메모): Shorts 댓글창 배경을 댓글 여는 버튼처럼 글래스(반투명·블러)로. 버튼은 영상 위라 비치지만 댓글창은 영상 옆이라 뒤가 검은 배경뿐 — 흐리게 늘린 영상(캔버스나 video 사본)을 패널 뒤에 깔아야 효과가 날 것으로 추정, 안 재 봄
 - 됨 (2026-10-10, 0.1.15 로컬 릴리스, 설치본 교체): Shorts PIP 의 ⋮ 왼쪽에 '큰 창으로' 버튼(.yt-pip-big, MenuJs 가 body 에 하나 붙임 — YouTube 버튼 줄은 Shorts 마다 새로 만들어져 그 안에 안 넣음). 누르면 menu:browse → SetMode(Browse), 댓글 연 채로도 됨. 마우스가 창 위에 있을 때만 보여 YouTube 위쪽 컨트롤과 같이 나타나고 사라짐. 큰 창의 Shorts 페이지에서 휠로 넘기면 큰 창 그대로 — 다시 PIP 로 가려면 Shorts 를 벗어났다 다시 골라야 함
 - (메모였던 것) Shorts PIP 에서 큰 창으로 돌아가는 버튼이 없음. 일반 영상 PIP 는 YouTube 전체화면을 나가면(나가기 버튼·Esc) Browse 로 돌아오는데(ContainsFullScreenElementChanged), Shorts 페이지는 전체화면이 없어 그 길이 없음. 지금 되는 길은 뒤로 가기(마우스 뒤로·Alt+←)뿐 — shpip.ps1 의 F 단계에서 Shorts 를 벗어나면 1100x750 Browse 로 돌아오는 것을 봄. 안: Shorts 오른쪽 버튼 줄 맨 아래에 '큰 창' 버튼을 더하거나(MenuJs ctlButton 과 같은 모양, menu: 메시지로 SetMode(Browse)), Esc 를 Shorts PIP 에서 Browse 로
 - 막힌 것: 없음 (Actions 는 11월 1일까지 못 씀 — 위 로컬 절차로 우회)
