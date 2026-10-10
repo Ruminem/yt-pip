@@ -2,7 +2,7 @@
 - 그 전 (같은 날): Shorts 를 YouTube Shorts 페이지 그대로 9:16 PIP 에서 재생(60bc4fd, 휠로 다음·반복 재생), 댓글은 PIP 옆으로 창을 넓혀 띄움(0e0371c). 댓글을 열 때 좁은 PIP 위에 패널이 겹쳐 깜빡이던 것은 페이지가 배치를 마친 뒤(panel:placed)에 창을 넓히고 그동안 영상 폭(--yt-pip-vw)을 고정·패널은 넓어진 뒤에만 보이게 고침(6977aed, 화면 녹화 cast.mjs 로 전후 비교). 닫을 때는 창이 줄기 전 약 50ms 오른쪽이 빈 검은 띠로 남음 — 없애려면 닫는 순서를 바꿔야 함
 - 다음 할 것: 0.1.14 설치본으로 실기기 확인 (직접, 설치본은 교체함). 확인할 것: 진짜 휠 한 칸, 영상 드래그, 아이콘, 오른쪽 공간 없을 때 댓글 왼쪽, 그리고 아래 셋
 - 아이디어 (사용자 메모): Shorts 댓글창 배경을 댓글 여는 버튼처럼 글래스(반투명·블러)로. 버튼은 영상 위라 비치지만 댓글창은 영상 옆이라 뒤가 검은 배경뿐 — 흐리게 늘린 영상(캔버스나 video 사본)을 패널 뒤에 깔아야 효과가 날 것으로 추정, 안 재 봄
-- 됨 (2026-10-10, 아직 릴리스 안 함): Shorts PIP 의 ⋮ 왼쪽에 '큰 창으로' 버튼(.yt-pip-big, MenuJs 가 body 에 하나 붙임 — YouTube 버튼 줄은 Shorts 마다 새로 만들어져 그 안에 안 넣음). 누르면 menu:browse → SetMode(Browse), 댓글 연 채로도 됨. 마우스가 창 위에 있을 때만 보여 YouTube 위쪽 컨트롤과 같이 나타나고 사라짐. 큰 창의 Shorts 페이지에서 휠로 넘기면 큰 창 그대로 — 다시 PIP 로 가려면 Shorts 를 벗어났다 다시 골라야 함
+- 됨 (2026-10-10, 0.1.15 로컬 릴리스 — 설치본은 아직 0.1.14): Shorts PIP 의 ⋮ 왼쪽에 '큰 창으로' 버튼(.yt-pip-big, MenuJs 가 body 에 하나 붙임 — YouTube 버튼 줄은 Shorts 마다 새로 만들어져 그 안에 안 넣음). 누르면 menu:browse → SetMode(Browse), 댓글 연 채로도 됨. 마우스가 창 위에 있을 때만 보여 YouTube 위쪽 컨트롤과 같이 나타나고 사라짐. 큰 창의 Shorts 페이지에서 휠로 넘기면 큰 창 그대로 — 다시 PIP 로 가려면 Shorts 를 벗어났다 다시 골라야 함
 - (메모였던 것) Shorts PIP 에서 큰 창으로 돌아가는 버튼이 없음. 일반 영상 PIP 는 YouTube 전체화면을 나가면(나가기 버튼·Esc) Browse 로 돌아오는데(ContainsFullScreenElementChanged), Shorts 페이지는 전체화면이 없어 그 길이 없음. 지금 되는 길은 뒤로 가기(마우스 뒤로·Alt+←)뿐 — shpip.ps1 의 F 단계에서 Shorts 를 벗어나면 1100x750 Browse 로 돌아오는 것을 봄. 안: Shorts 오른쪽 버튼 줄 맨 아래에 '큰 창' 버튼을 더하거나(MenuJs ctlButton 과 같은 모양, menu: 메시지로 SetMode(Browse)), Esc 를 Shorts PIP 에서 Browse 로
 - 막힌 것: 없음 (Actions 는 11월 1일까지 못 씀 — 위 로컬 절차로 우회)
 
