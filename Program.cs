@@ -220,7 +220,7 @@ sealed class PipForm : Form
     const string MenuJs = """
         (() => {
           const isMusic = location.host === 'music.youtube.com';
-          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, musicItem, listItem, ctls, layout = '', panel = false, vw = 0, side = null, asked, big, glass, paint = 0;
+          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, musicItem, listItem, ctls, layout = '', panel = false, vw = 0, side = null, shown = false, asked, big, glass, paint = 0;
           // The host's picks in the player's own controls, before autoplay/subtitles/settings (the left-edge menu shows only
           // while paused): 볼 목록 (PIP only), YouTube Music, 항상 위. Icons drawn here, each a set of path outlines.
           const ctlButton = (cmd, ...ds) => {
@@ -243,7 +243,8 @@ sealed class PipForm : Form
             if (!shorts) vw = 0;
             else if (open && !vw) vw = innerWidth;
             if (open && state.comments) side = state.comments;
-            const ready = !!(open && state.comments && innerWidth >= vw + 359);
+            // the room is waited for once, as it opens: after that the user's narrowing hid the panel (2026-10-10)
+            const ready = shown = !!(open && state.comments && (shown || innerWidth >= vw + 359));
             if (ready) vw = innerWidth - 360;                    // follows the user's resizing
             else if (!open && innerWidth < vw + 300) vw = 0;     // closed and narrowed back
             const key = [shorts, vw, ready, side].join();
