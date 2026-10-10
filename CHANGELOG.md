@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.15 — 2026-10-10
+
+- A Short in the PIP has a button left of YouTube's ⋮ that goes back to the big window, as leaving fullscreen does for other videos (the Shorts page has no fullscreen). It shows with YouTube's own top controls when the mouse is over the window.
+
+**한국어**
+
+- PIP 의 Shorts 에 YouTube ⋮ 왼쪽으로 큰 창으로 돌아가는 버튼이 생김. 다른 영상에서 전체화면을 나가는 것과 같음(Shorts 페이지에는 전체화면이 없음). 마우스가 창 위에 있을 때 YouTube 위쪽 컨트롤과 같이 보임.
+
 ## 0.1.14 — 2026-10-09
 
 - Shorts play in a 9:16 PIP on YouTube's own Shorts page: the mouse wheel goes to the next Short, and each Short loops instead of autoplay moving on.
