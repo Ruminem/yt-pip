@@ -432,10 +432,16 @@ sealed class PipForm : Form
         addEventListener('click', e => {
           if (e.target.closest?.('ytd-masthead #back-button') && location.pathname === '/results' && navigation.canGoBack) history.back();
         }, true);
-        // YouTube's "continue watching" miniplayer would cover the list; "만들기" only crowds the bar. The logo (home), which
-        // YouTube drops at this width: back, unless it runs into the buttons on the right (bar()).
+        // YouTube's "continue watching" miniplayer would cover the list; "만들기" only crowds the bar. The search box, which
+        // YouTube folds into an icon at this width: always out, taking what the bar has left. The logo (home), which YouTube
+        // drops at this width: back, unless it squeezes the search box (bar()).
         document.addEventListener('DOMContentLoaded', () => document.head.append(Object.assign(document.createElement('style'), {
-          textContent: 'ytd-miniplayer, ytd-masthead #buttons > ytd-button-renderer { display: none !important; }'
+          textContent: 'ytd-miniplayer, ytd-masthead #buttons > ytd-button-renderer, ytd-masthead #search-button-narrow { display: none !important; }'
+            + 'ytd-masthead #center { flex: 1 1 0 !important; min-width: 0 !important; }'
+            + 'ytd-masthead #end { flex: none !important; min-width: 0 !important; }'
+            + 'ytd-masthead #center > :is(yt-searchbox, ytd-searchbox) { display: flex !important; flex: 1 1 0; min-width: 0; margin: 0 !important; }'
+            // the 32px kept left of the box for the magnifier it grows on focus
+            + 'ytd-masthead .ytSearchboxComponentInputBox { margin-left: 0 !important; }'
             + 'ytd-masthead a#logo { display: block !important; }'
             // the bar YouTube draws for a watched video, a red strip along the thumbnail's bottom edge, covered whole
             + '.yt-pip-watched { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 10; background: #717171; pointer-events: none; }'
@@ -468,14 +474,11 @@ sealed class PipForm : Form
           if (!start) return;
           if (close.parentNode !== start) { start.prepend(close); close.after(back); }
           back.style.display = navigation.canGoBack ? 'grid' : 'none';
-          // the logo only where it clears the search and account buttons (signed in, a 360px panel has four of them)
-          const logo = start.querySelector('#logo');
+          // the logo only while the search box keeps room to type in (with it, a 360px panel leaves the box 0px)
+          const logo = start.querySelector('#logo'), input = document.querySelector('ytd-masthead input.yt-searchbox-input');
           if (logo) {
             logo.style.display = '';
-            const r = logo.querySelector('a#logo')?.getBoundingClientRect().right ?? 0;
-            const left = Math.min(...[...document.querySelectorAll('ytd-masthead :is(#center, #end) :is(yt-icon-button, button, a)')]
-              .map(e => e.getBoundingClientRect()).filter(b => b.width).map(b => b.left));
-            if (r > left) logo.style.display = 'none';
+            if (input && input.getBoundingClientRect().width < 120) logo.style.display = 'none';
           }
         };
         addEventListener('resize', columns);
