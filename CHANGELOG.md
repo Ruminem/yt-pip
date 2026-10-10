@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.27 — 2026-10-10
+
+- Switching to YouTube Music, the track is moved to the carried-over position as soon as Music's player is there, instead of after the whole page has loaded.
+
+**한국어**
+
+- YouTube Music 으로 넘어갈 때 페이지 전체가 다 뜰 때까지 기다리지 않고, Music 플레이어가 준비되는 즉시 넘겨받은 위치로 옮김.
+
 ## 0.1.26 — 2026-10-10
 
 - Coming back from YouTube Music, the still picture gives way to the playing video as soon as the page has frames, about 1 s sooner than before, already at the position carried over.
