@@ -120,6 +120,9 @@ sealed class PipForm : Form
             // The Shorts page in the PIP (MenuJs marks it): the video over the whole window as on a phone, no top bar, the
             // comments over it. Without this the page is wider than a small PIP and cuts them (288 wide, 2026-10-09).
             + 'html.yt-pip-shorts #masthead-container, html.yt-pip-shorts #cinematic-shorts-scrim { display: none !important; }'
+            // nor YouTube's left nav rail (Home, Shorts, Subscriptions, You): the window widened for the comments is wide
+            // enough for it and it lay over their top left (2026-10-10)
+            + 'html.yt-pip-shorts :is(ytd-mini-guide-renderer, tp-yt-app-drawer#guide) { display: none !important; }'
             + 'html.yt-pip-shorts ytd-app { --ytd-masthead-height: 0px !important; }'
             + 'html.yt-pip-shorts #page-manager.ytd-app, html.yt-pip-shorts ytd-shorts, html.yt-pip-shorts ytd-shorts .reel-video-in-sequence-new { margin: 0 !important; }'
             + 'html.yt-pip-shorts ytd-shorts, html.yt-pip-shorts ytd-shorts * { --ytd-shorts-player-height: 100vh !important; --ytd-shorts-player-width: 100vw !important;'
