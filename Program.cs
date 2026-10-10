@@ -432,10 +432,11 @@ sealed class PipForm : Form
         addEventListener('click', e => {
           if (e.target.closest?.('ytd-masthead #back-button') && location.pathname === '/results' && navigation.canGoBack) history.back();
         }, true);
-        // YouTube's "continue watching" miniplayer would cover the list; at this width the logo runs into
-        // the search button, and "만들기" only crowds the bar.
+        // YouTube's "continue watching" miniplayer would cover the list; "만들기" only crowds the bar. The logo (home), which
+        // YouTube drops at this width: back, unless it runs into the buttons on the right (bar()).
         document.addEventListener('DOMContentLoaded', () => document.head.append(Object.assign(document.createElement('style'), {
-          textContent: 'ytd-miniplayer, ytd-masthead #logo, ytd-masthead #buttons > ytd-button-renderer { display: none !important; }'
+          textContent: 'ytd-miniplayer, ytd-masthead #buttons > ytd-button-renderer { display: none !important; }'
+            + 'ytd-masthead a#logo { display: block !important; }'
             // the bar YouTube draws for a watched video, a red strip along the thumbnail's bottom edge, covered whole
             + '.yt-pip-watched { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 10; background: #717171; pointer-events: none; }'
             + '.yt-pip-watched > div { height: 100%; background: #f03; }'
@@ -467,6 +468,15 @@ sealed class PipForm : Form
           if (!start) return;
           if (close.parentNode !== start) { start.prepend(close); close.after(back); }
           back.style.display = navigation.canGoBack ? 'grid' : 'none';
+          // the logo only where it clears the search and account buttons (signed in, a 360px panel has four of them)
+          const logo = start.querySelector('#logo');
+          if (logo) {
+            logo.style.display = '';
+            const r = logo.querySelector('a#logo')?.getBoundingClientRect().right ?? 0;
+            const left = Math.min(...[...document.querySelectorAll('ytd-masthead :is(#center, #end) :is(yt-icon-button, button, a)')]
+              .map(e => e.getBoundingClientRect()).filter(b => b.width).map(b => b.left));
+            if (r > left) logo.style.display = 'none';
+          }
         };
         addEventListener('resize', columns);
         setInterval(() => { columns(); bar(); }, 1000);
