@@ -526,6 +526,35 @@ sealed class PipForm : Form
         });
         """;
 
+    // Back (or forward) to a video, from a Short say: YouTube starts it over, after an ad if one comes (measured
+    // 2026-10-10). On from where it was left once the video itself plays; the ad runs as it is.
+    const string KeepPlaceJs = """
+        if (top === window && location.host === 'www.youtube.com') {
+          const left = {};  // video id: seconds, when its page was left
+          const player = () => document.querySelector('#movie_player');
+          let wait = 0;
+          navigation.addEventListener('navigate', e => {
+            const to = new URL(e.destination.url), id = to.pathname === '/watch' ? to.searchParams.get('v') : null;
+            // not on YouTube's replace to the same page, right after the traverse back (it reads 0 there)
+            const p = player(), d = p?.getVideoData?.();
+            if (location.pathname === '/watch' && d?.video_id && d.video_id !== id && !d.isLive && !p.classList.contains('ad-showing'))
+              left[d.video_id] = p.getCurrentTime();
+            const t = left[id];
+            if (e.navigationType !== 'traverse' || !(t > 5)) return;
+            clearInterval(wait);
+            const t0 = Date.now();
+            wait = setInterval(() => {
+              const p = player();
+              if (new URLSearchParams(location.search).get('v') !== id || Date.now() - t0 > 60000) return clearInterval(wait);
+              // playing (1) on its own: a stopped or paused one stays so
+              if (p?.getVideoData?.()?.video_id !== id || p.classList.contains('ad-showing') || p.getPlayerState?.() !== 1) return;
+              clearInterval(wait);
+              if (p.getCurrentTime() < t - 3) p.seekTo(t, true);
+            }, 250);
+          });
+        }
+        """;
+
     // The side switched away from stops (its own pause, as its button does). Shorts too.
     const string PauseJs = "for (const p of document.querySelectorAll('#movie_player, #shorts-player')) p.pauseVideo?.()";
 
@@ -695,7 +724,7 @@ sealed class PipForm : Form
             Program.Log($"user.css: {userCss.Length} chars");
         }
         catch (IOException) { }  // none: nothing to add
-        await SetUpAsync(core, PlayStateJs, DragJs, MenuJs);
+        await SetUpAsync(core, PlayStateJs, DragJs, MenuJs, KeepPlaceJs);
         core.WebMessageReceived += async (_, e) =>
         {
             var msg = e.TryGetWebMessageAsString();
