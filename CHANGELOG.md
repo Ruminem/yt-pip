@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.30 — 2026-10-10
+
+- Switching from YouTube to YouTube Music no longer leaves YouTube playing the same song underneath: the side you leave goes silent as soon as the other side plays.
+- On a Short in a big PIP with the comments on the left, the window no longer shows a sideways scrollbar.
+
+**한국어**
+
+- YouTube 에서 YouTube Music 으로 전환해도 YouTube 가 같은 곡을 뒤에서 계속 재생하지 않음. 새 쪽이 재생되는 순간 떠나는 쪽이 조용해짐.
+- 큰 PIP 에서 Shorts 댓글을 왼쪽에 펼쳐도 창에 가로 스크롤바가 생기지 않음.
+
 ## 0.1.29 — 2026-10-10
 
 - YouTube Music now opens in its own view beside YouTube, so switching either way no longer reloads a page. Going back to YouTube shows the video right away and resumes it at Music's position.
