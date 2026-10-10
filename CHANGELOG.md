@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.28 — 2026-10-10
+
+- Switching to YouTube Music closes the watch list panel, so coming back to the PIP no longer opens it again.
+
+**한국어**
+
+- YouTube Music 으로 넘어갈 때 '볼 목록' 을 닫음. PIP 로 돌아와도 목록이 다시 펼쳐지지 않음.
+
 ## 0.1.27 — 2026-10-10
 
 - Switching to YouTube Music, the track is moved to the carried-over position as soon as Music's player is there, instead of after the whole page has loaded.
