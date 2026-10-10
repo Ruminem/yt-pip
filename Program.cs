@@ -1076,17 +1076,16 @@ sealed class PipForm : Form
     // The test copy sits off every screen and must stay there: no screen to keep it on.
     Rectangle Work => Program.Test ? new Rectangle(Left, Top, 1 << 20, 1 << 20) : Screen.FromControl(this).WorkingArea;
 
-    // The same video area in the new shape (a 512x288 PIP becomes about 288x512 for a Short), kept at the
-    // screen corner it is nearest to and on the screen.
+    // The same video area in the new shape (a 512x288 PIP becomes about 288x512 for a Short), its top-left corner
+    // where it was, moved only to stay on the screen. (It kept the nearest screen corner, which pinned a PIP in the
+    // lower half by its bottom edge; the user asked for top-left, 2026-10-10.)
     internal static Rectangle Refit(Rectangle r, Size chrome, double aspect, Rectangle work)
     {
         double area = Math.Max(1, r.Width - chrome.Width) * (double)Math.Max(1, r.Height - chrome.Height);
         var fit = LockAspect(new Rectangle(0, 0, (int)Math.Round(Math.Sqrt(area * aspect)) + chrome.Width, 0), 8, chrome, aspect);
         if (fit.Height > work.Height) fit = LockAspect(new Rectangle(0, 0, 0, work.Height), 6, chrome, aspect);
-        int x = r.Left - work.Left <= work.Right - r.Right ? r.Left : r.Right - fit.Width;
-        int y = r.Top - work.Top <= work.Bottom - r.Bottom ? r.Top : r.Bottom - fit.Height;
-        x = Math.Clamp(x, work.Left, Math.Max(work.Left, work.Right - fit.Width));
-        y = Math.Clamp(y, work.Top, Math.Max(work.Top, work.Bottom - fit.Height));
+        int x = Math.Clamp(r.Left, work.Left, Math.Max(work.Left, work.Right - fit.Width));
+        int y = Math.Clamp(r.Top, work.Top, Math.Max(work.Top, work.Bottom - fit.Height));
         return new Rectangle(x, y, fit.Width, fit.Height);
     }
 
@@ -1262,20 +1261,23 @@ static class SelfTest
         Check(PipForm.LockAspect(new Rectangle(0, 0, 10, 10), 8, chrome, wide).Width == 256, "min width");
         Check(PipForm.LockAspect(new Rectangle(0, 0, 10, 10), 8, chrome, tall).Width == 151, "min width, tall");
 
-        // A Short in a PIP at the bottom-right: same area standing up, still in that corner; and back.
+        // A Short in a PIP: same area standing up, the top-left corner kept; and back.
         var work = new Rectangle(0, 0, 1920, 1040);
-        var pip = new Rectangle(1384, 728, 512, 288);
+        var pip = new Rectangle(600, 500, 512, 288);
         var s1 = PipForm.Refit(pip, chrome, tall, work);
-        Check(s1.Right == pip.Right && s1.Bottom == pip.Bottom && s1.Width == 295 && s1.Height == 504, $"to tall {s1}");
+        Check(s1.Location == pip.Location && s1.Width == 295 && s1.Height == 504, $"to tall {s1}");
         var s2 = PipForm.Refit(s1, chrome, wide, work);
-        Check(s2.Right == pip.Right && s2.Bottom == pip.Bottom && Math.Abs(s2.Width - pip.Width) <= 2, $"back to wide {s2}");
+        Check(s2.Location == pip.Location && Math.Abs(s2.Width - pip.Width) <= 2, $"back to wide {s2}");
+        // Standing up at the bottom-right it moves up only as far as the screen needs.
+        var s4 = PipForm.Refit(new Rectangle(1384, 728, 512, 288), chrome, tall, work);
+        Check(s4.X == 1384 && s4.Bottom == 1040, $"kept on screen {s4}");
         // At the top-left it stays there; too tall for the screen it is cut to the screen's height.
         var s3 = PipForm.Refit(new Rectangle(10, 10, 1600, 900), chrome, tall, work);
         Check(s3.X == 10 && s3.Y == 0 && s3.Height == 1040, $"capped {s3}");
 
         // The watch list goes on the first side with room, the video staying put; with none, right and slid left.
         Check(PipForm.PlaceList(new Rectangle(24, 24, 512, 288), 360, work) == (DockStyle.Right, new Rectangle(24, 24, 872, 288)), "list right");
-        Check(PipForm.PlaceList(pip, 360, work) == (DockStyle.Left, new Rectangle(1024, 728, 872, 288)), "list left");
+        Check(PipForm.PlaceList(new Rectangle(1384, 728, 512, 288), 360, work) == (DockStyle.Left, new Rectangle(1024, 728, 872, 288)), "list left");
         Check(PipForm.PlaceList(new Rectangle(100, 100, 1700, 300), 360, work) == (DockStyle.Bottom, new Rectangle(100, 100, 1700, 660)), "list below");
         Check(PipForm.PlaceList(new Rectangle(100, 700, 1700, 300), 360, work) == (DockStyle.Top, new Rectangle(100, 340, 1700, 660)), "list above");
         Check(PipForm.PlaceList(new Rectangle(100, 200, 1700, 700), 360, work) == (DockStyle.Right, new Rectangle(0, 200, 2060, 700)), "list slid");
