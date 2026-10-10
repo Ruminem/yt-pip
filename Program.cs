@@ -482,10 +482,10 @@ sealed class PipForm : Form
               clearInterval(i);
               if ($T > 0) v.currentTime = $T;
               p.setVolume($V); $M ? p.mute() : p.unMute();
-              done('ok vol ' + p.getVolume() + (p.isMuted() ? ' muted' : ''));
+              done('ok vol ' + p.getVolume() + (p.isMuted() ? ' muted' : '') + ' at ' + (Date.now() - t0) + 'ms');
             }
             else if (Date.now() - t0 > 15000) { clearInterval(i); done('timeout'); }
-          }, 200);
+          }, 50);  // 50: on the way back from Music the cover draws from here (was 200)
         })
         """;
 
@@ -531,6 +531,9 @@ sealed class PipForm : Form
           c.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:2147483647;pointer-events:none;view-transition-name:yt-pip-cover;background:#181818 center/contain no-repeat'
             + (/^[\w-]+$/.test(id) ? ` url("https://i.ytimg.com/vi/${id}/mqdefault.jpg")` : '');
           document.documentElement.append(c);
+          // the page's scrollbar beside it otherwise, until fullscreen (2026-10-10)
+          if (!document.getElementById('yt-pip-cover-css')) document.documentElement.append(Object.assign(document.createElement('style'),
+            { id: 'yt-pip-cover-css', textContent: 'html:has(> #yt-pip-cover) { scrollbar-width: none }' }));
           const g = c.getContext('2d');
           const draw = () => {
             if (!c.isConnected) return;
@@ -541,6 +544,7 @@ sealed class PipForm : Form
               const s = Math.min(w / v.videoWidth, h / v.videoHeight), vw = v.videoWidth * s, vh = v.videoHeight * s;
               g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
               g.drawImage(v, (w - vw) / 2, (h - vh) / 2, vw, vh);
+              c.dataset.drawn = 1;
             }
             requestAnimationFrame(draw);
           };
@@ -771,10 +775,8 @@ sealed class PipForm : Form
             // `retrying` here: a video picked from the list or the way back from Music, the window is already PIP.
             else if (retrying)
             {
+                if (shotBox != null) { covered = true; _ = RestoreAsync(); _ = ShotToCoverAsync(); }
                 await EnterFullscreenAsync();
-                // from Music: the page's cover under the picture first, drawing the video now playing, so the masthead
-                // that stays over the fullscreen for a moment does not show either
-                if (shotBox != null) { covered = true; await EvalAsync(CoverJs); DropShot(); }
                 if (covered) await EvalAsync(UncoverJs);
             }
             else if (covered) await EvalAsync(UncoverJs);
@@ -782,12 +784,7 @@ sealed class PipForm : Form
         core.NavigationCompleted += async (_, _) =>
         {
             SendMenuState();
-            if (pendingRestore is var (t, vol, muted))
-            {
-                pendingRestore = null;
-                var js = RestoreJs.Replace("$T", t.ToString()).Replace("$V", vol.ToString()).Replace("$M", muted ? "true" : "false");
-                Program.Log($"restore t={t} vol={vol} muted={muted}: {await EvalAsync(js)}");
-            }
+            await RestoreAsync();
         };
         // YouTube Music asks "leave site?" on every navigation away, which stalls the switch back to YouTube.
         // Without the default dialogs, alert/confirm become message boxes.
@@ -963,6 +960,33 @@ sealed class PipForm : Form
         box.BringToFront();  // docked last: beside the list like the page
         await Task.Delay(20000);  // the page never got to fullscreen: the page as it is
         if (shotBox == box) DropShot();
+    }
+
+    // The video plays under the picture from ~0.9 s, fullscreen ~2.9 s (2026-10-10): the page's cover, drawing it, from the
+    // start of the page; the picture off once that has drawn a frame. Then the cover until fullscreen, as from the big window.
+    async Task ShotToCoverAsync()
+    {
+        await EvalAsync("new Promise(r => { const f = () => document.documentElement ? r(" + CoverJs + ") : setTimeout(f, 16); f(); })");
+        var drawn = await EvalAsync("""
+            new Promise(done => {
+              const t0 = performance.now();
+              const f = () => document.getElementById('yt-pip-cover')?.dataset.drawn || performance.now() - t0 > 5000
+                ? done(Math.round(performance.now())) : setTimeout(f, 16);
+              f();
+            })
+            """);
+        Program.Log($"shot to cover at {drawn} ms");
+        DropShot();
+    }
+
+    // The position and volume carried over from the other site, once its player is there: as the page starts on the way
+    // back from Music (so the cover draws from there, not the start), else once it has loaded.
+    async Task RestoreAsync()
+    {
+        if (pendingRestore is not { } r) return;
+        pendingRestore = null;
+        var js = RestoreJs.Replace("$T", r.t.ToString()).Replace("$V", r.vol.ToString()).Replace("$M", r.muted ? "true" : "false");
+        Program.Log($"restore t={r.t} vol={r.vol} muted={r.muted}: {await EvalAsync(js)}");
     }
 
     void DropShot()
