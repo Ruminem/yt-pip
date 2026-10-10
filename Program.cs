@@ -480,9 +480,11 @@ sealed class PipForm : Form
             const v = document.querySelector('video'), p = document.querySelector('#movie_player');
             if (v && v.readyState >= 1 && p && p.setVolume) {
               clearInterval(i);
+              const was = (v.paused ? 'paused' : 'playing') + ' at ' + v.currentTime.toFixed(1);
               if ($T > 0) v.currentTime = $T;
               p.setVolume($V); $M ? p.mute() : p.unMute();
-              done('ok vol ' + p.getVolume() + (p.isMuted() ? ' muted' : '') + ' at ' + (Date.now() - t0) + 'ms');
+              done('ok vol ' + p.getVolume() + (p.isMuted() ? ' muted' : '') + ' at ' + (Date.now() - t0) + 'ms, page '
+                + Math.round(performance.now()) + 'ms, was ' + was);
             }
             else if (Date.now() - t0 > 15000) { clearInterval(i); done('timeout'); }
           }, 50);  // 50: on the way back from Music the cover draws from here (was 200)
@@ -732,6 +734,9 @@ sealed class PipForm : Form
         };
         core.SourceChanged += async (_, _) =>
         {
+            // Into Music: the position as soon as its player is there, not after the page's load (~2 s after the switch,
+            // the player ready before it: 66 ms in, 2026-10-10), while the sound was cut.
+            if (mode == Mode.Music) _ = RestoreAsync();
             // YouTube's own Shorts page in the PIP, not fullscreen (it has none): its wheel goes to the next Short, comments
             // open over the video and it loops. A watch page has none of that (2026-10-09). Next Shorts keep the window.
             if (Program.ShortsId(core.Source) != null)
