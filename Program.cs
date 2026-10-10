@@ -1261,6 +1261,7 @@ sealed class PipForm : Form
         WindowState = FormWindowState.Normal;
         mode = next;
         list.Visible = false;  // the rects below are without the panel; ShowList adds it back in PIP
+        if (next == Mode.Music) listOpen = false;  // not back with the PIP from Music: it opened again with it (2026-10-10)
         listShift = Point.Empty;
         cmtSide = null;
         cmtPending = null;
