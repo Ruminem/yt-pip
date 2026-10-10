@@ -1028,8 +1028,27 @@ sealed class PipForm : Form
             Mode.Pip or Mode.Music => state.PipRect,
             _ => state.BrowseRect,
         };
+        // Windows guesses fullscreen from a window over the whole monitor, and missed it here: the taskbar stayed over
+        // the video (2026-10-10). Telling the taskbar, as Chromium does, sends it behind while this window is active.
+        Taskbar.MarkFullscreenWindow(Handle, next == Mode.Monitor);
         if (next == Mode.Pip) { ShowList(); FitAspect(); }
         SendMenuState();
+    }
+
+    static readonly ITaskbarList2 Taskbar = NewTaskbar();
+    static ITaskbarList2 NewTaskbar() { var t = (ITaskbarList2)new TaskbarList(); t.HrInit(); return t; }
+
+    [ComImport, Guid("56FDF344-FD6D-11d0-958A-006097C9A090")] class TaskbarList { }
+
+    [ComImport, Guid("602D4995-B13A-429b-A66E-1935E44F4317"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface ITaskbarList2
+    {
+        void HrInit();
+        void AddTab(IntPtr hwnd);
+        void DeleteTab(IntPtr hwnd);
+        void ActivateTab(IntPtr hwnd);
+        void SetActiveAlt(IntPtr hwnd);
+        void MarkFullscreenWindow(IntPtr hwnd, [MarshalAs(UnmanagedType.Bool)] bool fullscreen);
     }
 
     // Re-runs WM_NCCALCSIZE so the title bar hides/returns.
