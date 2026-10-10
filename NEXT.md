@@ -1,7 +1,8 @@
 - 여기까지 됨 (2026-10-10, 릴리스 전): '큰 창으로'를 몇 번 누르다 큰 창에 Shorts 가 전체화면 모양(위 막대 없음)으로 남던 것을 고침. 원인: 큰 창의 Shorts 에서 페이지 전체화면(숨은 '전체 화면(f)' 버튼·더블클릭)이 켜지면 호스트가 PIP 로 바꾸고, 그 상태로 '큰 창으로'를 누르면 페이지 전체화면이 큰 창으로 따라옴(시험 사본에서 버튼 .click() 으로 재현, 사용자 로그 09:58:39 True). 이제 Shorts 페이지의 전체화면은 바로 끄고, 큰 창에서였으면 PIP 로 감. 시험 shfs.ps1(scratchpad)
 - 그 뒤 (같은 날, public 전환 준비): README.md(영어·한국어) 추가, 릴리스 제목을 상표를 이름처럼 쓰지 않게 `yt-pip <버전>` 으로 — release.yml 과 기존 릴리스 16개(gh release edit). 로컬 릴리스 때도 --title "yt-pip <버전>". 커밋 이메일 바꾸기(force push)는 안 하기로 함: pssin1@naver.com 이 이미 다른 public 저장소 커밋 976건에 공개돼 있어 효과가 없음. 라이선스는 Apache-2.0 그대로(비상업 라이선스 검토 후 유지)
 - public 전환함(사용자). 프로필 README 의 Other / 그 밖에 에 yt-pip 추가(Ruminem 0f0ba60). Actions 가 다시 돎 — public 저장소는 기본 러너가 무료라 결제 막힘이 풀림, workflow_dispatch 로 확인(태그가 있어 건너뛰고 성공). 그래서 아래 로컬 릴리스 절차는 이제 안 씀 — csproj 버전 올려 푸시하면 됨
-- 그 뒤 (릴리스 전): Shorts 댓글창 글래스 — MenuJs 가 body 맨 앞에 16x28 캔버스(.yt-pip-glass)를 두고 댓글창이 보이는 동안(-ready) 초당 4번 #shorts-player video 를 그림, CSS 로 댓글창 자리에 늘려 blur(24px)·brightness(.45)·saturate(1.4), 댓글창 배경(#anchored-panel·#content·입력칸 #header)은 투명. YouTube 앰비언트 캔버스(#shorts-cinematic-container)를 늘려 쓰려 했으나 조상에 묶여 position: fixed 가 안 먹음. 닫으면 그리기 멈춤(clearRect 뒤 2초 평균 0으로 확인). 왼쪽 댓글은 시험 사본이 늘 오른쪽이라 안 봄
+- 0.1.17 릴리스(Actions, 1분 14초)·설치본 교체함 — 아래 글래스
+- 그 뒤: Shorts 댓글창 글래스 — MenuJs 가 body 맨 앞에 16x28 캔버스(.yt-pip-glass)를 두고 댓글창이 보이는 동안(-ready) 초당 4번 #shorts-player video 를 그림, CSS 로 댓글창 자리에 늘려 blur(24px)·brightness(.45)·saturate(1.4), 댓글창 배경(#anchored-panel·#content·입력칸 #header)은 투명. YouTube 앰비언트 캔버스(#shorts-cinematic-container)를 늘려 쓰려 했으나 조상에 묶여 position: fixed 가 안 먹음. 닫으면 그리기 멈춤(clearRect 뒤 2초 평균 0으로 확인). 왼쪽 댓글은 시험 사본이 늘 오른쪽이라 안 봄
 - 0.1.16 릴리스(Actions, 1분 24초)·설치본 교체함 — Shorts 전체화면 수정(b34dab1)
 - 다음 할 것: 0.1.16 설치본으로 실기기 확인 (직접) — Shorts 에서 더블클릭(전체화면) 뒤 큰 창 버튼, 그리고 아래 것들
 - 막힌 것: 없음
