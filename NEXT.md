@@ -1,3 +1,4 @@
+- 0.1.28 릴리스(Actions 1분 11초)·설치본 교체함. 정책 검토(v0.1.27..HEAD) 걸리는 것 없음. 0.1.27 동안 Music 전환 기록 없음 — YouTube → Music 끊김 효과는 아직 못 봄, 다음 전환 뒤 `restore ... page Nms, was` 줄로 판단
 - 그 뒤 (릴리스 전): Music 에서 뒤로 가기로 오면 '볼 목록' 이 다시 펼쳐지던 것 — Music 으로 갈 때 listOpen 을 끔(SetMode, 사용자 요청: 닫힘이 기본). 시험 backtime.ps1 -List: 목록 연 PIP 873x288 → Music → 뒤로 514x288, 전체화면 ok. 사용자는 목록 때문에 느려진다고 봤는데 그건 안 잼
 - 0.1.27 릴리스(Actions 1분 8초)·설치본 교체함. 정책 검토(v0.1.26..HEAD) 걸리는 것 없음. 다음: 사용자가 YouTube → Music 한 번 전환한 뒤 설치본 로그의 `restore ... page Nms, was ...` 줄로 효과 판단
 - 그 뒤 (릴리스 전): YouTube → Music 전환 때 소리가 1초쯤 끊긴다는 신고. 설치본 로그(19:46:05): 복원이 Music 의 NavigationCompleted(전환 ~2 s 뒤)를 기다렸는데 플레이어는 그 전부터 준비돼 있었음(66 ms 만에 끝남). Music 에서도 SourceChanged 에서 복원을 시작하게 함. 복원 로그에 page Nms(Music 페이지 시작부터)·was playing/paused at t(되감기 직전)를 남김 — 시험 사본은 Music 에 못 들어가 효과는 못 봄, 사용자가 한 번 전환하면 로그로 판단. 끊김을 없애려면 두 번째 웹뷰(Music 을 따로 띄워 재생되면 바꾸기)뿐
