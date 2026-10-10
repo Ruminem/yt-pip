@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.34 — 2026-10-10
+
+- The YouTube logo is back at the top of the watch list, so one click takes the list to YouTube's home. It hides only when the list is too narrow for it to fit beside the buttons on the right.
+
+**한국어**
+
+- 볼 목록 상단에 YouTube 로고가 다시 생겨서 한 번 누르면 목록이 YouTube 홈으로 감. 목록이 좁아 오른쪽 버튼과 겹칠 때만 숨김.
+
 ## 0.1.33 — 2026-10-10
 
 - Pressing back on YouTube Music's player goes straight back to YouTube, even after Music has moved on to other tracks. Before, it went back through each of those tracks first.
