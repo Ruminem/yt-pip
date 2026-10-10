@@ -391,7 +391,14 @@ sealed class PipForm : Form
           const id = u.searchParams.get('v');
           if (!id) return;
           const list = u.searchParams.get('list'), index = u.searchParams.get('index');
-          chrome.webview.postMessage('https://www.youtube.com/watch?v=' + id + (list ? '&list=' + list + (index ? '&index=' + index : '') : ''));
+          // A playlist's own link (its title, thumbnail: the entry's first link; in search results /watch?v=<first>&list=,
+          // 2026-10-10) opens the playlist: the host plays its first video only if the PIP is not in that playlist already.
+          // By the href, not the entry the link is in: a click after hovering lands on YouTube's inline preview, a link
+          // to the same place outside the entry (2026-10-10: the first video played every time).
+          const own = list && !index && [...document.querySelectorAll('yt-lockup-view-model, ytd-playlist-renderer, ytd-radio-renderer')]
+            .some(b => b.querySelector('a[href*="list="]')?.href === a.href);
+          if (own) chrome.webview.postMessage('playlist:' + list + ':' + id);
+          else chrome.webview.postMessage('https://www.youtube.com/watch?v=' + id + (list ? '&list=' + list + (index ? '&index=' + index : '') : ''));
           // not a Mix (RD...): YouTube has no page for those ("볼 수 없는 재생목록 유형", 2026-10-05)
           if (list && !list.startsWith('RD') && new URLSearchParams(location.search).get('list') !== list) location.assign('/playlist?list=' + list);
         }, true);
@@ -511,13 +518,53 @@ sealed class PipForm : Form
         })
         """;
 
-    // While a new video gets to the PIP: the window's colour over the page. It lets the mouse through (and
-    // elementFromPoint looks past it), so the fullscreen button is still found and pressed.
+    // While a new video gets to the PIP (~1.4 s, 0.5 s of it playing already, 2026-10-10): over the page its thumbnail,
+    // then the video itself drawn on a canvas once it plays, so it shows at once instead of the window's colour. It lets
+    // the mouse through (and elementFromPoint looks past it), so the fullscreen button is still found and pressed.
+    // Only the new video is drawn (the home page's hover preview is a #movie_player too).
+    // Its own view-transition-name: YouTube cross-fades the watch page in a view transition once the page under it has
+    // loaded, drawn in the top layer, and the cover in the root snapshot showed under the player and bar for ~200 ms
+    // (2026-10-10); as its own group it is drawn last, over the others.
     const string CoverJs = """
-        document.getElementById('yt-pip-cover') || document.documentElement.append(Object.assign(document.createElement('div'), { id: 'yt-pip-cover',
-          style: 'position:fixed;inset:0;z-index:2147483647;background:#181818;pointer-events:none' }))
+        (() => {
+          if (document.getElementById('yt-pip-cover')) return;
+          const id = new URLSearchParams(location.search).get('v');
+          const c = Object.assign(document.createElement('canvas'), { id: 'yt-pip-cover' });
+          c.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:2147483647;pointer-events:none;view-transition-name:yt-pip-cover;background:#181818 center/contain no-repeat'
+            + (/^[\w-]+$/.test(id) ? ` url("https://i.ytimg.com/vi/${id}/mqdefault.jpg")` : '');
+          document.documentElement.append(c);
+          const g = c.getContext('2d');
+          const draw = () => {
+            if (!c.isConnected) return;
+            const p = document.querySelector('#movie_player'), v = p?.querySelector('video');
+            if (v && !v.paused && v.readyState >= 2 && v.videoWidth && p.getVideoData?.()?.video_id === id) {
+              const w = Math.round(innerWidth * devicePixelRatio), h = Math.round(innerHeight * devicePixelRatio);
+              if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+              const s = Math.min(w / v.videoWidth, h / v.videoHeight), vw = v.videoWidth * s, vh = v.videoHeight * s;
+              g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
+              g.drawImage(v, (w - vw) / 2, (h - vh) / 2, vw, vh);
+            }
+            requestAnimationFrame(draw);
+          };
+          draw();
+        })()
         """;
-    const string UncoverJs = "document.getElementById('yt-pip-cover')?.remove()";
+    // In fullscreen the watch page's bar is still what shows at the top for 30+ ms after its fullscreen layout is on
+    // (2026-10-10, 30+ ms): the cover stays until the bar is no longer what shows there (1 s cap). Not "until the player
+    // shows there": with the list open YouTube's side panel box is there instead (it waited the full second, 2026-10-10).
+    // setTimeout, not requestAnimationFrame: a hidden window would never finish.
+    const string UncoverJs = """
+        new Promise(done => {
+          const t0 = performance.now();
+          const go = () => {
+            const c = document.getElementById('yt-pip-cover');
+            if (c && document.fullscreenElement && document.elementFromPoint(innerWidth / 2, 8)?.closest('ytd-masthead, #masthead-container')
+              && performance.now() - t0 < 1000) return setTimeout(go, 16);
+            c?.remove(); done(null);
+          };
+          go();
+        })
+        """;
 
     // After the button press: "ok", "broken" (fullscreen without YouTube's fullscreen layout) or "none".
     const string LayoutJs = """
@@ -657,13 +704,15 @@ sealed class PipForm : Form
                 wasShorts = true;
                 return;
             }
+            bool covered = false;
             if (wasShorts)
             {
                 wasShorts = false;
                 HideComments();
-                // Off the Shorts page the big window, unless a video is next (the list, back): fullscreen in the PIP.
+                // Off the Shorts page the big window, unless a video is next (the list, back): fullscreen in the PIP,
+                // covered meanwhile as from the big window (else the watch page shows in it for 1.3-2.7 s, 2026-10-10).
                 if (pip && Program.VideoId(core.Source) == null) SetMode(Mode.Browse);
-                else if (pip) { retrying = true; FitAspect(); }
+                else if (pip) { retrying = true; covered = true; await EvalAsync(CoverJs); FitAspect(); }
             }
             var id = Program.VideoId(core.Source);
             // Off the watch page (back to the home page, say): coming back to the same video, forward, is PIP again.
@@ -676,15 +725,21 @@ sealed class PipForm : Form
             {
                 // Into the PIP's window at once, covered until the video is fullscreen in it. Else the watch page shows in
                 // the big window for the ~2 s the press waits, then the big fullscreen for 0.4 s before the shrink (2026-10-05).
+                // Covered first: shrunk first, the small window showed the bare watch page for a frame or more.
                 retrying = true;  // keeps the PIP while it is not fullscreen yet
-                SetMode(Mode.Pip);
                 await EvalAsync(CoverJs);
+                SetMode(Mode.Pip);
                 await EnterFullscreenAsync();
                 if (!core.ContainsFullScreenElement && mode == Mode.Pip) SetMode(Mode.Browse);  // it never got there: the page as it is
                 await EvalAsync(UncoverJs);
             }
             // `retrying` here: a video picked from the list or the way back from Music, the window is already PIP.
-            else if (retrying) await EnterFullscreenAsync();
+            else if (retrying)
+            {
+                await EnterFullscreenAsync();
+                if (covered) await EvalAsync(UncoverJs);
+            }
+            else if (covered) await EvalAsync(UncoverJs);
         };
         core.NavigationCompleted += async (_, _) =>
         {
@@ -895,6 +950,12 @@ sealed class PipForm : Form
         {
             var msg = e.TryGetWebMessageAsString();
             if (msg == "close") { if (listOpen) ToggleList(); }
+            else if (msg?.Split(':') is ["playlist", var pl, var vid])
+            {
+                // already playing from it: going to the playlist is not "play it from the start" (2026-10-10)
+                if (mode == Mode.Pip && Program.WatchParam(web.CoreWebView2.Source, "list") == pl) Program.Log($"list playlist {pl}: playing it already");
+                else await PlayFromListAsync($"https://www.youtube.com/watch?v={vid}&list={pl}");
+            }
             else await PlayFromListAsync(msg);
         };
         // A video opened in the panel some way other than a link click (signed in, 2026-10-05; likely the hover
