@@ -477,9 +477,11 @@ sealed class PipForm : Form
     // Switching between YouTube and YouTube Music (separate sites, separate saved volume): once the player has the video
     // ($ID, null: any), to the position ($T, -1: as it is) and volume ($V, -1: as it is), playing; resolves once it plays,
     // so the other side's sound stops only then. Player API, since video.volume is YouTube's loudness-normalised value.
+    // Position and volume only if it plays $FROM, the video they were read from: Music plays its own id for a video's song
+    // (another timeline), and a live stream once went back to t=1 from such a song, with its 5 volume (installed, 2026-10-10).
     const string ResumeJs = """
         new Promise(done => {
-          const id = $ID, t = $T, t0 = Date.now();
+          const id = $ID, from = $FROM, t0 = Date.now();
           let seen = 0, was = '';
           const i = setInterval(() => {
             if (Date.now() - t0 > 15000) { clearInterval(i); return done('timeout' + (seen ? ', player at ' + (seen - t0) + 'ms' : '')); }
@@ -488,8 +490,10 @@ sealed class PipForm : Form
             if (!seen) {
               seen = Date.now();
               was = (v.paused ? 'paused' : 'playing') + ' at ' + v.currentTime.toFixed(1);
-              if (t >= 0 && Math.abs(v.currentTime - t) > 1.5) v.currentTime = t;
-              if ($V >= 0) { p.setVolume($V); $M ? p.mute() : p.unMute(); }
+              if (p.getVideoData?.()?.video_id === from) {
+                if ($T >= 0 && Math.abs(v.currentTime - $T) > 1.5) v.currentTime = $T;
+                if ($V >= 0) { p.setVolume($V); $M ? p.mute() : p.unMute(); }
+              }
               p.playVideo?.();
             }
             if (v.paused || v.readyState < 3) return;
@@ -1153,7 +1157,8 @@ sealed class PipForm : Form
         return (v, now.GetProperty("t").GetInt32(), Math.Clamp(now.GetProperty("vol").GetInt32(), 0, 100), now.GetProperty("muted").GetBoolean());
     }
 
-    static string Resume(string? v, int t, int vol, bool muted) => ResumeJs.Replace("$ID", JsonSerializer.Serialize(v))
+    static string Resume(string? v, string? from, int t, int vol, bool muted) => ResumeJs.Replace("$ID", JsonSerializer.Serialize(v))
+        .Replace("$FROM", JsonSerializer.Serialize(from))
         .Replace("$T", t.ToString()).Replace("$V", vol.ToString()).Replace("$M", muted ? "true" : "false");
 
     // Same video and position, in YouTube Music (a plain small window, no fullscreen there) or back in the YouTube PIP.
@@ -1193,7 +1198,7 @@ sealed class PipForm : Form
         string? r = null;
         // cut off if the page goes again (a redirect), then asked again
         while (v != null && r == null && gen == switches && sw.ElapsedMilliseconds < 20000)
-            if ((r = (await EvalAsync(Resume(load ? null : now?.v, t, vol, muted), m))?.GetString()) == null) await Task.Delay(50);
+            if ((r = (await EvalAsync(Resume(load ? null : now?.v, v, t, vol, muted), m))?.GetString()) == null) await Task.Delay(50);
         HandOver(gen, Mode.Music, m, web.CoreWebView2);
         if (v != null && gen == switches && r?.StartsWith("playing") == true && (await ReadPlayerAsync(m))?.v is { } got) musicTrack = (v, got);
         Program.Log($"into Music {v} ({(load ? "loaded" : "as it was")}): {r ?? "nothing to wait for"}; handed over at {sw.ElapsedMilliseconds}ms, Music plays {musicTrack?.Got}");
@@ -1230,8 +1235,8 @@ sealed class PipForm : Form
         SetMode(backMode);
         // Another track in Music (Music's own pick, or its back button to an earlier visit's song) is not taken along: the
         // video as it was left, playing again if it was in the PIP (user, 2026-10-10)
-        string? r = same ? (await EvalAsync(Resume(ytId, t, vol, muted)))?.GetString()
-            : backMode != Mode.Browse ? (await EvalAsync(Resume(null, -1, -1, false)))?.GetString() : null;
+        string? r = same ? (await EvalAsync(Resume(ytId, v, t, vol, muted)))?.GetString()
+            : backMode != Mode.Browse ? (await EvalAsync(Resume(null, null, -1, -1, false)))?.GetString() : null;
         HandOver(gen, Mode.Browse, web.CoreWebView2, m);
         Program.Log($"out of Music: {r ?? "nothing to wait for"}; handed over at {sw.ElapsedMilliseconds}ms");
     }
