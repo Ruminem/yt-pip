@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.37 — 2026-10-10
+
+- Switching between a video and a Short, the PIP window now changes shape smoothly over a fifth of a second instead of jumping.
+- Shorts in the watch list's menu (≡) now plays in the PIP instead of opening inside the list.
+
+**한국어**
+
+- 영상과 쇼츠 사이를 오갈 때 PIP 창 모양이 한 번에 바뀌지 않고 0.2초에 걸쳐 부드럽게 바뀜.
+- 볼 목록 메뉴(≡)의 Shorts 를 누르면 목록 안이 아니라 PIP 에서 재생함.
+
 ## 0.1.36 — 2026-10-10
 
 - Going back to a video now starts it right where you left it: no more flash of 0:00 and a moment of sound from the start before the jump.
