@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.38 — 2026-10-11
+
+- The PIP's shape change between a video and a Short now runs at around 100+ frames a second instead of about 25.
+- A video after a Short no longer stops for a moment as it starts.
+
+**한국어**
+
+- 영상과 쇼츠 사이에서 PIP 창 모양이 바뀌는 애니메이션이 초당 약 25프레임에서 100프레임 넘게로 부드러워짐.
+- 쇼츠 다음에 영상이 재생될 때 처음에 잠깐 멈추던 것이 없어짐.
+
 ## 0.1.37 — 2026-10-10
 
 - Switching between a video and a Short, the PIP window now changes shape smoothly over a fifth of a second instead of jumping.
