@@ -149,12 +149,13 @@ sealed class PipForm : Form
             // no dimming over the video, which also took the wheel from it (the next Short)
             + 'html.yt-pip-shorts ytd-shorts #anchored-panel-scrim { display: none !important; }'
             // MenuJs's way back to the big window (the Shorts page has no fullscreen to leave): left of YouTube's ⋮, as it looks
+            // (MenuJs moves it beside whatever buttons YouTube has there)
             + '.yt-pip-big { display: none; }'
             + 'html.yt-pip-shorts .yt-pip-big { display: flex; position: fixed; top: 16px; right: 64px; z-index: 2100; width: 48px; height: 48px; padding: 0; border: 0;'
             + ' border-radius: 50%; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.3); cursor: pointer; }'
             + 'html.yt-pip-shorts .yt-pip-big:hover { background: rgba(0, 0, 0, 0.5); }'
             + 'html.yt-pip-shorts:not(:hover) .yt-pip-big { opacity: 0; transition: opacity 0.2s; }'  // with YouTube's top controls
-            + 'html.yt-pip-cmts:not(.yt-pip-cmts-left) .yt-pip-big { right: calc(100vw - var(--yt-pip-vw) + 64px); }'
+            + 'html.yt-pip-cmts:not(.yt-pip-cmts-left) .yt-pip-big:not([style*=right]) { right: calc(100vw - var(--yt-pip-vw) + 64px); }'
             // the wider page gets YouTube's desktop layout, buttons right of the video (under the comments): back over its edge
             + 'html.yt-pip-cmts ytd-shorts .ytReelPlayerOverlayViewModelActionsContainer { position: absolute !important; left: calc(var(--yt-pip-vw) - 72px) !important; top: 0 !important; bottom: 0 !important; }'
             + 'html.yt-pip-cmts ytd-shorts .ytReelPlayerOverlayViewModelMetadataContainer { width: calc(var(--yt-pip-vw) - 72px) !important; }' })));
@@ -274,10 +275,15 @@ sealed class PipForm : Form
               paint = ready ? setInterval(() => { const v = document.querySelector('#shorts-player video'); if (v?.videoWidth) glass.getContext('2d').drawImage(v, 0, 0, 16, 28); }, 250) : 0;
             }
             if (shorts && !big && document.body) {
-              big = Object.assign(ctlButton('browse', 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'), { className: 'yt-pip-big', title: '큰 창으로' });  // corners spread out
-              big.setAttribute('aria-label', '큰 창으로');
+              big = Object.assign(ctlButton('browse', 'M19 12H5M11 6l-6 6 6 6'), { className: 'yt-pip-big', title: '돌아가기' });  // an arrow back
+              big.setAttribute('aria-label', '돌아가기');
               document.body.append(big);
             }
+            // left of YouTube's buttons at the top right, which vary (⋮ alone; CC and expand signed in, which it covered,
+            // 2026-10-10): beside them wherever they are, the CSS's place when there are none
+            const rc = shorts && big && [...document.querySelectorAll('ytd-shorts #right-controls')]
+              .map(e => e.getBoundingClientRect()).find(r => r.width && r.top >= 0 && r.top < innerHeight / 2);
+            if (big) { big.style.right = rc ? innerWidth - rc.left + 8 + 'px' : ''; big.style.top = rc ? rc.top + (rc.height - 48) / 2 + 'px' : ''; }
             const group = !isMusic && document.querySelector('#movie_player .ytp-right-controls-left');
             if (group && !ctls) ctls = [
               ctlButton('list', 'M4 5h16v14H4zM14 5v14'),                                               // a window with a panel on its right
@@ -491,7 +497,10 @@ sealed class PipForm : Form
             if (document.fullscreenElement) { clearInterval(t); return done(null); }
             // On a fresh load a press before the watch page has taken the video (its video-id) gets the broken layout
             // (2026-10-05, 6/6 before). After 5 s press anyway.
-            const ready = document.querySelector('ytd-watch-flexy')?.getAttribute('video-id') === new URLSearchParams(location.search).get('v');
+            // A watch page that had a video before (back from a Short) takes the new one ~1 s after it plays, and a press
+            // then is fine (2026-10-10): only a page's first video waits.
+            const had = document.querySelector('ytd-watch-flexy')?.getAttribute('video-id');
+            const ready = had === new URLSearchParams(location.search).get('v') || !!had;
             if (!ready && Date.now() - t0 < 5000) return;
             clearInterval(t);
             // F typed into a focused box (search, comment) would be text, not the key
