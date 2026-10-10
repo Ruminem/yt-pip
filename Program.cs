@@ -598,6 +598,9 @@ sealed class PipForm : Form
     bool retrying;
     (string Video, Bitmap Image)? shot;  // the PIP as it was left for Music (TakeShot)
     PictureBox? shotBox;
+    (string Video, int T, int Vol, bool Muted)? left;  // the video as it was left for Music (CarryBack)
+    (string? v, int t, int vol, bool muted)? musicAt;  // Music's player, read every second while there (CarryBack)
+    readonly System.Windows.Forms.Timer musicTimer = new() { Interval = 1000 };
     double aspect = 16.0 / 9;  // width / height of the video playing, from the page
 
     bool wasShorts;  // the last address was a Shorts page: moving on to the next Short leaves the window as it is
@@ -626,6 +629,8 @@ sealed class PipForm : Form
         Controls.Add(web);
         Controls.Add(list);  // added after the Fill control so docking gives it the right edge first
         dragTimer.Tick += (_, _) => DragTick();
+        musicTimer.Tick += async (_, _) => await ReadMusicAsync();
+        musicTimer.Start();
         Load += async (_, _) => await InitAsync();
         FormClosing += (_, _) => { RememberRect(); state.Save(); };
     }
@@ -711,13 +716,14 @@ sealed class PipForm : Form
             {
                 Program.Log($"into Music by history: {e.Uri}");
                 TakeShot(Program.VideoId(core.Source));
+                _ = RememberLeftAsync();  // the page is still up until Music's arrives
                 SetMode(Mode.Music);
             }
             else if (to.Host == "www.youtube.com" && mode == Mode.Music)
             {
                 Program.Log($"out of Music by history: {e.Uri}");
-                if (Program.VideoId(e.Uri) == null) SetMode(Mode.Browse);
-                else { lastVideo = null; retrying = true; SetMode(Mode.Pip); ShowShot(Program.VideoId(e.Uri)); }
+                if (Program.VideoId(e.Uri) is not { } id) SetMode(Mode.Browse);
+                else { CarryBack(id); lastVideo = null; retrying = true; SetMode(Mode.Pip); ShowShot(id); }
             }
         };
         core.SourceChanged += async (_, _) =>
@@ -1117,22 +1123,53 @@ sealed class PipForm : Form
     }
 
     // Same video and position, in YouTube Music (a plain small window, no fullscreen there) or back in the YouTube PIP.
-    async Task ToggleMusicAsync()
+    // The video playing, where and how loud. Null when the page went away under it.
+    async Task<(string? v, int t, int vol, bool muted)?> ReadPlayerAsync()
     {
         // In Music the track plays on while browsing its other pages (no ?v= then): ask the player. Not on
         // YouTube, whose watch player stays (paused) in the page after going back to the home page.
-        var now = await EvalAsync("""
+        if (await EvalAsync("""
             (p => ({ v: (location.host === 'music.youtube.com' && p?.getVideoData?.()?.video_id) || new URLSearchParams(location.search).get('v')
                        || location.pathname.match(/^\/shorts\/([\w-]+)/)?.[1],
                      t: Math.floor((p?.querySelector('video') ?? document.querySelector('video'))?.currentTime || 0),
                      vol: p?.getVolume ? Math.round(p.getVolume()) : 100, muted: !!p?.isMuted?.() }))(document.querySelector(location.pathname.startsWith('/shorts/') ? '#shorts-player' : '#movie_player'))
-            """);
-        string? v = now?.GetProperty("v").GetString();
-        int t = now?.GetProperty("t").GetInt32() ?? 0;
-        int vol = Math.Clamp(now?.GetProperty("vol").GetInt32() ?? 100, 0, 100);
-        bool muted = now?.GetProperty("muted").GetBoolean() ?? false;
-        Program.Log($"music toggle from {mode}: v={v} t={t} vol={vol} muted={muted}");
+            """) is not { } now) return null;
+        string? v = now.TryGetProperty("v", out var pv) ? pv.GetString() : null;  // left out when undefined (no video)
         if (v != null && !System.Text.RegularExpressions.Regex.IsMatch(v, "^[A-Za-z0-9_-]+$")) v = null;
+        return (v, now.GetProperty("t").GetInt32(), Math.Clamp(now.GetProperty("vol").GetInt32(), 0, 100), now.GetProperty("muted").GetBoolean());
+    }
+
+    // Into Music: where the video was left, for back to it (CarryBackAsync).
+    async Task RememberLeftAsync()
+    {
+        if (await ReadPlayerAsync() is { v: { } v } p) left = (v, p.t, p.vol, p.muted);
+    }
+
+    // Back (or forward) out of Music to a video: the history's link has no position, so it started over (2026-10-10).
+    // Music's position if it played the same track, as the menu does, else where the video was left. From what was
+    // read before: read now, the answer came from the YouTube page already. Applied once the page is there.
+    void CarryBack(string video)
+    {
+        pendingRestore = BackPosition(video, musicAt, left);
+        Program.Log($"back to {video}: music {musicAt?.v} t={musicAt?.t}, left {left?.Video} t={left?.T} -> {pendingRestore}");
+    }
+
+    internal static (int t, int vol, bool muted)? BackPosition(string video, (string? v, int t, int vol, bool muted)? music,
+        (string Video, int T, int Vol, bool Muted)? left)
+        => music is { } m && m.v == video ? (m.t, m.vol, m.muted)
+            : left is { } l && l.Video == video ? (l.T, l.Vol, l.Muted) : null;
+
+    async Task ReadMusicAsync()
+    {
+        if (mode != Mode.Music) { musicAt = null; return; }
+        var p = await ReadPlayerAsync();
+        if (mode == Mode.Music && p is { v: not null }) musicAt = p;  // not the page that came after it meanwhile
+    }
+
+    async Task ToggleMusicAsync()
+    {
+        var (v, t, vol, muted) = await ReadPlayerAsync() ?? (null, 0, 100, false);
+        Program.Log($"music toggle from {mode}: v={v} t={t} vol={vol} muted={muted}");
         if (mode == Mode.Music)
         {
             // no track (Music's home): nothing to carry over, its player's volume is not the user's
@@ -1148,6 +1185,7 @@ sealed class PipForm : Form
         {
             // from any mode: the video being watched, or Music's home when there is none (YouTube home, search)
             TakeShot(v);
+            if (v != null) left = (v, t, vol, muted);
             SetMode(Mode.Music);
             if (v != null) pendingRestore = (t, vol, muted);
             web.CoreWebView2.Navigate(v != null ? $"https://music.youtube.com/watch?v={v}" : "https://music.youtube.com/");
@@ -1446,6 +1484,11 @@ static class SelfTest
         // Minimum size: the shorter side 135 either way round.
         Check(PipForm.LockAspect(new Rectangle(0, 0, 10, 10), 8, chrome, wide).Width == 256, "min width");
         Check(PipForm.LockAspect(new Rectangle(0, 0, 10, 10), 8, chrome, tall).Width == 151, "min width, tall");
+
+        // Back out of Music: Music's position for the same track, else where the video was left, else none.
+        Check(PipForm.BackPosition("a", ("a", 90, 40, false), ("a", 6, 100, false)) == (90, 40, false), "back: music's");
+        Check(PipForm.BackPosition("a", ("b", 90, 40, false), ("a", 6, 100, false)) == (6, 100, false), "back: left");
+        Check(PipForm.BackPosition("a", ("b", 90, 40, false), ("c", 6, 100, false)) == null, "back: none");
 
         // A Short in a PIP: same area standing up, the top-left corner kept; and back.
         var work = new Rectangle(0, 0, 1920, 1040);
