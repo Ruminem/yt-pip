@@ -134,7 +134,8 @@ sealed class PipForm : Form
             // Comments (any panel) beside the Short: the host widens the window by 360 on the side it says; the video keeps
             // its width (--yt-pip-vw, MenuJs) and the panel shows only once the window has room for it (-ready)
             + 'html.yt-pip-cmts ytd-shorts, html.yt-pip-cmts ytd-shorts * { --ytd-shorts-player-width: var(--yt-pip-vw) !important; }'
-            + 'html.yt-pip-cmts ytd-shorts #shorts-container { width: var(--yt-pip-vw) !important; }'
+            // (and no right margin: YouTube gives it 96px in a big window, which with the left margin scrolled the page sideways)
+            + 'html.yt-pip-cmts ytd-shorts #shorts-container { width: var(--yt-pip-vw) !important; margin-right: 0 !important; }'
             + 'html.yt-pip-cmts-left ytd-shorts #shorts-container { margin-left: calc(100vw - var(--yt-pip-vw)) !important; }'
             + 'html.yt-pip-shorts:not(.yt-pip-cmts-ready) ytd-shorts #anchored-panel { visibility: hidden !important; }'
             + 'html.yt-pip-cmts ytd-shorts #anchored-panel { position: fixed !important; top: 0 !important; height: 100vh !important; width: 360px !important; left: auto !important; right: 0 !important; }'
