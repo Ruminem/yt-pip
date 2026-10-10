@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.26 — 2026-10-10
+
+- Coming back from YouTube Music, the still picture gives way to the playing video as soon as the page has frames, about 1 s sooner than before, already at the position carried over.
+- While the PIP is covered on its way to fullscreen, the page's scrollbar no longer shows at its right edge.
+
+**한국어**
+
+- YouTube Music 에서 돌아올 때 페이지에 영상 프레임이 들어오는 즉시 정지 화면이 재생 중인 영상으로 바뀜. 전보다 1초쯤 빠르고, 넘겨받은 위치에서 바로 이어짐.
+- PIP 가 전체화면으로 가는 동안 덮여 있을 때 오른쪽 끝에 페이지 스크롤바가 더는 안 보임.
+
 ## 0.1.25 — 2026-10-10
 
 - Going back from YouTube Music to a YouTube video resumes it instead of starting over: at Music's position and volume if Music was playing the same track, else where the video was left.
