@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.19 — 2026-10-10
+
+- A Short's comments beside the PIP stay when the window is resized smaller, instead of disappearing.
+- Fullscreen over the whole monitor tells the taskbar it is fullscreen, so the taskbar goes behind the video while the window is active; Windows did not always notice by itself.
+
+**한국어**
+
+- PIP 옆 Shorts 댓글창이 창을 줄여도 사라지지 않음.
+- 모니터 전체 화면이 작업 표시줄에 전체화면임을 알려서, 창이 활성인 동안 작업 표시줄이 영상 뒤로 내려감. Windows 가 스스로 알아채지 못할 때가 있었음.
+
 ## 0.1.18 — 2026-10-10
 
 - Always on top holds after the app is started in the background (by a script, say): Windows didn't let it go on top then, so the window sat below others with the menu still checked until the option was turned off and on. It now goes on top the first time the window is clicked.
