@@ -828,8 +828,26 @@ sealed class PipForm : Form
         cmtPending = null;
         cmtSide = p.Side;
         var before = Location;
-        Bounds = p.Bounds;
+        if (p.Bounds.Left != Left) ResizeCovered(p.Bounds); else Bounds = p.Bounds;
         cmtShift = WithoutComments(Bounds).Location - (Size)before;
+    }
+
+    // The window's left edge moving (comments on the left): the page's last frame sits at the new edge, the video 360 px
+    // off its place, until the page paints at the new size (some 50 ms, both ways, 2026-10-10). The PIP as it was, where
+    // it was on the screen, over it until then; the rest the window's colour, as the new room on the right shows.
+    async void ResizeCovered(Rectangle to)
+    {
+        using var now = new Bitmap(ClientSize.Width, ClientSize.Height);
+        using (var g = Graphics.FromImage(now)) { var dc = g.GetHdc(); PrintWindow(Handle, dc, 3); g.ReleaseHdc(dc); }  // client, page included
+        var shot = new Bitmap(to.Width - (Width - ClientSize.Width), to.Height - (Height - ClientSize.Height));
+        using (var g = Graphics.FromImage(shot)) { g.Clear(BackColor); g.DrawImageUnscaled(now, Left - to.Left, 0); }
+        using var cover = new PictureBox { Image = shot, Bounds = new Rectangle(Point.Empty, shot.Size) };
+        Controls.Add(cover);
+        cover.BringToFront();
+        Bounds = to;
+        await EvalAsync($"new Promise(r => {{ const t0 = Date.now(), f = () => Math.abs(innerWidth * devicePixelRatio - {web.Width}) < 2 || Date.now() - t0 > 1000"
+            + " ? requestAnimationFrame(() => requestAnimationFrame(r)) : requestAnimationFrame(f); f(); })");
+        shot.Dispose();
     }
 
     void HideComments()
@@ -843,7 +861,7 @@ sealed class PipForm : Form
         cmtSide = null;
         cmtShift = Point.Empty;
         SendMenuState();
-        Bounds = r;
+        if (r.Left != Left) ResizeCovered(r); else Bounds = r;
     }
 
     Rectangle WithoutComments(Rectangle b) => cmtSide switch
@@ -1112,8 +1130,11 @@ sealed class PipForm : Form
 
     void FitAspect() => Bounds = Refit(Bounds, Chrome, Aspect, Work);
 
-    // The test copy sits off every screen and must stay there: no screen to keep it on.
-    Rectangle Work => Program.Test ? new Rectangle(Left, Top, 1 << 20, 1 << 20) : Screen.FromControl(this).WorkingArea;
+    // The test copy sits off every screen and must stay there: no screen to keep it on. YTPIP_TEST_EDGE=1: the screen
+    // ends at its right edge, as a PIP in the bottom-right corner (panels open on the left).
+    Rectangle Work => !Program.Test ? Screen.FromControl(this).WorkingArea
+        : TestEdge ? Rectangle.FromLTRB(Left - (1 << 20), Top, Right, Top + (1 << 20)) : new Rectangle(Left, Top, 1 << 20, 1 << 20);
+    static readonly bool TestEdge = Program.Test && Environment.GetEnvironmentVariable("YTPIP_TEST_EDGE") == "1";
 
     // The same video area in the new shape (a 512x288 PIP becomes about 288x512 for a Short), its top-left corner
     // where it was, moved only to stay on the screen. (It kept the nearest screen corner, which pinned a PIP in the
@@ -1223,6 +1244,7 @@ sealed class PipForm : Form
     [DllImport("user32.dll")] static extern int CheckMenuItem(IntPtr menu, int id, int flags);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool ModifyMenu(IntPtr menu, int id, int flags, nint newId, string text);
     [DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
+    [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hWnd, IntPtr dc, uint flags);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
 }
 
