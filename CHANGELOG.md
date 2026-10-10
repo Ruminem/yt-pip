@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.17 — 2026-10-10
+
+- A Short's comments beside the PIP have a glass background: the video's colours, blurred, show through the panel as they do through YouTube's buttons over the video, and follow the Short as the wheel moves on.
+
+**한국어**
+
+- PIP 옆에 열리는 Shorts 댓글창에 글래스 배경이 생김. 영상 위 YouTube 버튼처럼 영상 색이 흐리게 비쳐 보이고, 휠로 다음 Shorts 로 넘기면 그 영상의 색을 따라감.
+
 ## 0.1.16 — 2026-10-10
 
 - YouTube's own fullscreen on a Short (a double-click, say) no longer gets stuck: from the big window it goes to the Shorts PIP as other videos do, and the big window button no longer brings back a fullscreen page without YouTube's top bar.
