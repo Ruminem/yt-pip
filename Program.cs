@@ -112,10 +112,8 @@ sealed class PipForm : Form
           const m = 'progress:' + id + ':' + Math.round(v.currentTime / v.duration * 100);
           if (m !== progress) chrome.webview.postMessage(progress = m);
         }, true);
-        // Product cards over the video ("featured product" is a suggested-action badge in the player script), the Shorts
-        // "제품 보기" pill (with its row) and the product panel it opens (2026-10-05).
         document.addEventListener('DOMContentLoaded', () => document.head.append(Object.assign(document.createElement('style'), {
-          textContent: '.ytp-suggested-action, .ytp-featured-product, yt-shorts-suggested-action-view-model, .ytReelMetapanelViewModelMetapanelItem:has(> yt-shorts-suggested-action-view-model), ytd-engagement-panel-section-list-renderer[target-id^=shopping_panel] { display: none !important; }'
+          textContent: ''
             // The fullscreen playlist button narrows the player for the playlist but leaves the panel `hidden` (any window
             // width, 2026-10-05; why is inside YouTube's script). ponytail: shown while the page says it is open.
             + 'ytd-watch-flexy[fullscreen][playlist-panel-expanded] #panels-full-bleed-container > ytd-playlist-panel-renderer[hidden] { display: flex !important; }'
@@ -641,6 +639,16 @@ sealed class PipForm : Form
         await core.AddScriptToExecuteOnDocumentCreatedAsync(PlayStateJs);
         await core.AddScriptToExecuteOnDocumentCreatedAsync(DragJs);
         await core.AddScriptToExecuteOnDocumentCreatedAsync(MenuJs);
+        // The user's own CSS for the pages (user.css in the data folder), read at start: what else to hide is theirs to
+        // choose, not the app's (CLAUDE.md, YouTube 정책).
+        try
+        {
+            var css = File.ReadAllText(Path.Combine(Program.DataDir, "user.css"));
+            await core.AddScriptToExecuteOnDocumentCreatedAsync("document.addEventListener('DOMContentLoaded', () => document.head.append("
+                + $"Object.assign(document.createElement('style'), {{ id: 'yt-pip-user-css', textContent: {JsonSerializer.Serialize(css)} }})))");
+            Program.Log($"user.css: {css.Length} chars");
+        }
+        catch (IOException) { }  // none: nothing to add
         core.WebMessageReceived += async (_, e) =>
         {
             var msg = e.TryGetWebMessageAsString();
@@ -691,6 +699,20 @@ sealed class PipForm : Form
         };
         // YouTube navigates in-page; a new video picked while browsing goes PIP once it plays
         // (not with monitor fullscreen on: then it behaves like the web player).
+        // Into or out of YouTube Music by back and forward, not the menu: the mode follows, set before the page goes as the
+        // menu does (2026-10-10: back on YouTube it stayed Music). Out of it a video goes PIP as from the menu, else the big
+        // window. Only back and forward: Music sends a browser it does not serve to www.youtube.com/musicpremium.
+        core.NavigationStarting += (_, e) =>
+        {
+            if (e.NavigationKind != CoreWebView2NavigationKind.BackOrForward || !Uri.TryCreate(e.Uri, UriKind.Absolute, out var to)) return;
+            if (to.Host == "music.youtube.com" && mode != Mode.Music) { Program.Log($"into Music by history: {e.Uri}"); SetMode(Mode.Music); }
+            else if (to.Host == "www.youtube.com" && mode == Mode.Music)
+            {
+                Program.Log($"out of Music by history: {e.Uri}");
+                if (Program.VideoId(e.Uri) == null) SetMode(Mode.Browse);
+                else { lastVideo = null; retrying = true; SetMode(Mode.Pip); }
+            }
+        };
         core.SourceChanged += async (_, _) =>
         {
             // YouTube's own Shorts page in the PIP, not fullscreen (it has none): its wheel goes to the next Short, comments

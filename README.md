@@ -7,8 +7,9 @@ window turns into a picture-in-picture player that keeps the video's shape; pick
 another from the watch list beside it without leaving the PIP.
 
 It is YouTube's own website in a WebView2 window, with the page laid out for a small
-window. Nothing is downloaded, and ads are left as they are; only the product cards
-over videos are hidden, since they cover a small window.
+window. Nothing is downloaded, and ads and everything else YouTube shows are left as
+they are. CSS of your own for the pages can go in `%LOCALAPPDATA%\yt-pip\user.css`,
+read when the app starts.
 
 Not affiliated with, endorsed by or sponsored by YouTube or Google.
 
@@ -79,7 +80,8 @@ open an issue.
 PIP 를 벗어나지 않음.
 
 WebView2 창에 YouTube 웹사이트를 그대로 띄우고 작은 창에 맞게 배치만 바꿈. 아무것도
-내려받지 않고 광고도 건드리지 않음. 작은 창을 가리는 영상 위 제품 카드만 숨김.
+내려받지 않고 광고를 비롯해 YouTube 가 보여 주는 것은 건드리지 않음. 페이지에 넣을 자기
+CSS 는 `%LOCALAPPDATA%\yt-pip\user.css` 에 두면 앱을 켤 때 읽음.
 
 YouTube·Google 과 관계없고, 그쪽이 보증하거나 후원하는 것이 아님.
 
