@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.18 — 2026-10-10
+
+- Always on top holds after the app is started in the background (by a script, say): Windows didn't let it go on top then, so the window sat below others with the menu still checked until the option was turned off and on. It now goes on top the first time the window is clicked.
+
+**한국어**
+
+- 앱을 백그라운드에서 띄웠을 때(스크립트 등)도 항상 위가 유지됨. 그때는 Windows 가 맨 위로 올려 주지 않아서 메뉴에 체크가 돼 있어도 창이 다른 창 아래에 있었고, 옵션을 껐다 켜야 했음. 이제 창을 처음 클릭할 때 맨 위로 올라감.
+
 ## 0.1.17 — 2026-10-10
 
 - A Short's comments beside the PIP have a glass background: the video's colours, blurred, show through the panel as they do through YouTube's buttons over the video, and follow the Short as the wheel moves on.
