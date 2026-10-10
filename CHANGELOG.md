@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.24 — 2026-10-10
+
+- Coming back from YouTube Music to the same video, the PIP shows the frame it left on until the video is fullscreen again (about 3 s), instead of the YouTube page loading in the small window.
+
+**한국어**
+
+- YouTube Music 에서 같은 영상으로 돌아올 때, 영상이 다시 전체화면이 될 때까지(약 3초) 작은 창에 YouTube 페이지가 로딩되는 대신 떠날 때의 화면이 멈춰 보임.
+
 ## 0.1.23 — 2026-10-10
 
 - The app no longer hides product cards or the shopping panel. CSS of your own for the pages can go in `%LOCALAPPDATA%\yt-pip\user.css`, read when the app starts; the previous hiding is the snippet to put there if you want it back.

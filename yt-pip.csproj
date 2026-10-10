@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>yt-pip</AssemblyName>
     <!-- Release exe (one self-contained file): .github/workflows/release.yml, on a push that bumps this -->
-    <Version>0.1.23</Version>
+    <Version>0.1.24</Version>
     <RootNamespace>YtPip</RootNamespace>
     <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
