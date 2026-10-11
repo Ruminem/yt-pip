@@ -745,6 +745,8 @@ sealed class PipForm : Form
     Mode mode;
     bool pip => mode == Mode.Pip;
     bool playing;
+    int titleH;  // the title bar with the frame above it, as Windows lays it out (WM_NCCALCSIZE)
+    int grown, pushed;  // what the PIP has grown by above the video for the title bar (0 or titleH); of that, how far it went down instead
     bool monitorFull;  // fullscreen fills the monitor like the web player instead of going PIP; off every launch
     string? lastVideo;  // auto-PIP only when a different video starts, or the same one again after leaving its page
     readonly System.Windows.Forms.Timer dragTimer = new() { Interval = 10 };
@@ -756,7 +758,7 @@ sealed class PipForm : Form
     bool OnShorts => Program.ShortsId(web.CoreWebView2?.Source) != null;
     double Aspect => OnShorts ? 9.0 / 16 : aspect;  // the Shorts page lays its video out 9:16 whatever the video's shape
 
-    bool TitleHidden => pip && playing;
+    bool TitleHidden => pip && grown == 0;
     protected override bool ShowWithoutActivation => Program.Test;
 
     public PipForm(string? startUrl)
@@ -781,6 +783,9 @@ sealed class PipForm : Form
         dragTimer.Tick += (_, _) => DragTick();
         Load += async (_, _) => await InitAsync();
         FormClosing += (_, _) => { RememberRect(); state.Save(); };
+        // back from minimized or maximized, as it plays or pauses now; after the resize, not inside a Bounds setter (that
+        // took the window back to its old top, the title bar's height too low after it played, 2026-10-11)
+        Resize += (_, _) => { if (IsHandleCreated) BeginInvoke(FitTitle); };
     }
 
     async Task InitAsync()
@@ -828,7 +833,7 @@ sealed class PipForm : Form
                 }
             }
             playing = msg == "playing";
-            if (pip) ApplyFrame();
+            FitTitle();
         };
         core.ContainsFullScreenElementChanged += (_, _) =>
         {
@@ -1511,7 +1516,8 @@ sealed class PipForm : Form
 
     void RememberRect()
     {
-        if (mode == Mode.Pip) { var r = PipOnly(Bounds); r.Offset(-listShift.X - cmtShift.X, -listShift.Y - cmtShift.Y); state.PipRect = r; }
+        // the PIP as it plays: without the title bar it grew by while paused
+        if (mode == Mode.Pip) { var r = TitleRect(PipOnly(Bounds), -grown, pushed, Work.Top).Item1; r.Offset(-listShift.X - cmtShift.X, -listShift.Y - cmtShift.Y); state.PipRect = r; }
         else if (mode == Mode.Browse) state.BrowseRect = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
     }
 
@@ -1521,6 +1527,7 @@ sealed class PipForm : Form
         RememberRect();
         WindowState = FormWindowState.Normal;
         mode = next;
+        grown = pushed = 0;  // the rects below are as it plays; FitTitle grows a paused PIP again
         web.Visible = next != Mode.Music;
         music.Visible = next == Mode.Music;
         if ((next == Mode.Music ? music : web).CoreWebView2 is { } shown) shown.IsMuted = false;  // muted by HandOver
@@ -1547,7 +1554,7 @@ sealed class PipForm : Form
         // Windows guesses fullscreen from a window over the whole monitor, and missed it here: the taskbar stayed over
         // the video (2026-10-10). Telling the taskbar, as Chromium does, sends it behind while this window is active.
         Taskbar.MarkFullscreenWindow(Handle, next == Mode.Monitor);
-        if (next == Mode.Pip) { ShowList(); FitAspect(); }
+        if (next == Mode.Pip) { ShowList(); FitAspect(); FitTitle(); }
         SendMenuState();
     }
 
@@ -1574,16 +1581,42 @@ sealed class PipForm : Form
         SetWindowPos(Handle, 0, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
     }
 
-    // Everything in the PIP window that is not video while it plays: the frame. The title bar is hidden
-    // then, leaving only the bottom frame (half of left + right); the playing message can arrive after
-    // the resize, so do not measure the current height.
+    // Paused in the PIP the title bar comes back above the video, the window growing up by it: the video keeps its size
+    // and place. (It took the video's top before, black bars beside it and the page laid out again; critique, 2026-10-11.)
+    // One SetWindowPos for the frame and the size, so no frame in between shows the bars. Not while minimized or
+    // maximized: on the next resize, back to normal.
+    void FitTitle()
+    {
+        int d = (pip && !playing ? titleH : 0) - grown;
+        if (d == 0 || WindowState != FormWindowState.Normal) return;
+        (var r, pushed) = TitleRect(Bounds, d, pushed, Work.Top);
+        grown += d;
+        const uint SWP_FRAMECHANGED = 0x20, SWP_NOZORDER = 4, SWP_NOACTIVATE = 0x10;
+        SetWindowPos(Handle, 0, r.X, r.Y, r.Width, r.Height, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOACTIVATE);
+        // a shape change under way (a video starting as it runs) ends grown the same
+        if (morphCover != null) Morph(morphTo with { Y = morphTo.Y - d, Height = morphTo.Height + d });
+    }
+
+    // The window for the title bar coming (d > 0) or going (d < 0) above the video. At the screen's top it goes down
+    // instead (pushed), and back up by that after if it is still there.
+    internal static (Rectangle, int Pushed) TitleRect(Rectangle r, int d, int pushed, int workTop)
+    {
+        int y = r.Top - d;
+        if (d > 0) { pushed = Math.Max(0, workTop - y); y += pushed; }
+        else { if (r.Top == workTop) y -= pushed; pushed = 0; }
+        return (r with { Y = y, Height = r.Height + d }, pushed);
+    }
+
+    // Everything in the PIP window that is not video: the frame, and the title bar above while paused (grown). Playing,
+    // only the bottom frame (half of left + right) is left; the playing message can arrive after a resize, so it is
+    // counted from grown, not measured.
     Size Chrome
     {
         get
         {
             int frame = Width - ClientSize.Width;
             bool beside = list.Dock is DockStyle.Left or DockStyle.Right;
-            return new(frame + (list.Visible && beside ? list.Width : 0) + (cmtSide != null ? CmtWidth : 0), frame / 2 + (list.Visible && !beside ? list.Height : 0));
+            return new(frame + (list.Visible && beside ? list.Width : 0) + (cmtSide != null ? CmtWidth : 0), frame / 2 + grown + (list.Visible && !beside ? list.Height : 0));
         }
     }
 
@@ -1596,9 +1629,10 @@ sealed class PipForm : Form
     }
 
     // The test copy sits off every screen and must stay there: no screen to keep it on. YTPIP_TEST_EDGE=1: the screen
-    // ends at its right edge, as a PIP in the bottom-right corner (panels open on the left).
+    // ends at its right edge, as a PIP in the bottom-right corner (panels open on the left). Room above it, as a PIP
+    // mostly has, for the title bar while paused.
     Rectangle Work => !Program.Test ? Screen.FromControl(this).WorkingArea
-        : TestEdge ? Rectangle.FromLTRB(Left - (1 << 20), Top, Right, Top + (1 << 20)) : new Rectangle(Left, Top, 1 << 20, 1 << 20);
+        : TestEdge ? Rectangle.FromLTRB(Left - (1 << 20), Top - (1 << 16), Right, Top + (1 << 20)) : Rectangle.FromLTRB(Left, Top - (1 << 16), Left + (1 << 20), Top + (1 << 20));
     static readonly bool TestEdge = Program.Test && Environment.GetEnvironmentVariable("YTPIP_TEST_EDGE") == "1";
 
     // The same video area in the new shape (a 512x288 PIP becomes about 288x512 for a Short), its top-left corner
@@ -1631,12 +1665,13 @@ sealed class PipForm : Form
         const int WM_NCCALCSIZE = 0x83, WM_SIZING = 0x214, WM_SYSCOMMAND = 0x112, WM_INITMENU = 0x116, MF_CHECKED = 8, MF_GRAYED = 1;
         switch (m.Msg)
         {
-            case WM_NCCALCSIZE when TitleHidden && m.WParam != 0:
+            case WM_NCCALCSIZE when m.WParam != 0:
             {
-                // Let Windows lay out the normal frame, then give the title bar to the client.
+                // Let Windows lay out the normal frame (its title bar's height kept), then give the title bar to the client.
                 int top = Marshal.ReadInt32(m.LParam, 4);
                 base.WndProc(ref m);
-                Marshal.WriteInt32(m.LParam, 4, top);
+                if (Marshal.ReadInt32(m.LParam, 4) - top is > 0 and var t) titleH = t;
+                if (TitleHidden) Marshal.WriteInt32(m.LParam, 4, top);
                 return;
             }
             case WM_SIZING when pip:
@@ -1807,6 +1842,12 @@ static class SelfTest
         // At the top-left it stays there; too tall for the screen it is cut to the screen's height.
         var s3 = PipForm.Refit(new Rectangle(10, 10, 1600, 900), chrome, tall, work);
         Check(s3.X == 10 && s3.Y == 0 && s3.Height == 1040, $"capped {s3}");
+        // Paused, the title bar grows above the video; at the screen's top the window goes down instead, and back after.
+        Check(PipForm.TitleRect(pip, 31, 0, 0) == (new Rectangle(600, 469, 512, 319), 0), "title above");
+        Check(PipForm.TitleRect(new Rectangle(600, 469, 512, 319), -31, 0, 0) == (pip, 0), "title gone");
+        Check(PipForm.TitleRect(new Rectangle(600, 10, 512, 288), 31, 0, 0) == (new Rectangle(600, 0, 512, 319), 21), "title at the top");
+        Check(PipForm.TitleRect(new Rectangle(600, 0, 512, 319), -31, 21, 0) == (new Rectangle(600, 10, 512, 288), 0), "back from the top");
+        Check(PipForm.TitleRect(new Rectangle(600, 300, 512, 319), -31, 21, 0) == (new Rectangle(600, 331, 512, 288), 0), "moved off the top");
 
         // The watch list goes on the first side with room, the video staying put; with none, right and slid left.
         Check(PipForm.PlaceList(new Rectangle(24, 24, 512, 288), 360, work) == (DockStyle.Right, new Rectangle(24, 24, 872, 288)), "list right");
