@@ -458,6 +458,15 @@ sealed class PipForm : Form
             // the 32px kept left of the box for the magnifier it grows on focus
             + 'ytd-masthead .ytSearchboxComponentInputBox { margin-left: 0 !important; }'
             + 'ytd-masthead a#logo { display: block !important; }'
+            // the on-screen keyboard button, 31px of a box that has 77 (9 on the results page, 2026-10-11)
+            + 'ytd-masthead .ytSearchboxComponentYtdTextInputAssistantWrapper { display: none !important; }'
+            // A card's metadata line runs on unwrapped (479px in a 360px panel) and scrolled the whole page sideways, its bar
+            // taking 15px of the height; the page's scrollbar thin and quiet in a panel this narrow.
+            + 'html { overflow-x: hidden !important; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .3) transparent; }'
+            + 'ytd-search { overflow-x: hidden !important; }'
+            + '.yt-pip-btn { width: 40px; height: 40px; margin-right: 4px; border: 0; border-radius: 50%; background: none; cursor: pointer; display: grid; place-items: center; }'
+            + '.yt-pip-btn:hover { background: rgba(255, 255, 255, .1); } .yt-pip-btn:active { background: rgba(255, 255, 255, .2); }'
+            + '.yt-pip-btn:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }'
             // the bar YouTube draws for a watched video, a red strip along the thumbnail's bottom edge, covered whole
             + '.yt-pip-watched { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 10; background: #717171; pointer-events: none; }'
             + '.yt-pip-watched > div { height: 100%; background: #f03; }'
@@ -470,10 +479,8 @@ sealed class PipForm : Form
         // Close and back buttons before the masthead's menu button (put back if YouTube re-renders the bar); back only
         // when there is somewhere to go back to (a search, a playlist). DOM nodes, not markup: YouTube enforces Trusted Types.
         const button = (title, d, onclick) => {
-          const b = Object.assign(document.createElement('button'), { title, onclick });
-          b.style.cssText = 'width:40px;height:40px;margin-right:4px;border:0;border-radius:50%;background:none;cursor:pointer;display:grid;place-items:center';
-          b.onmouseenter = () => b.style.background = 'rgba(255,255,255,.1)';
-          b.onmouseleave = () => b.style.background = 'none';
+          const b = Object.assign(document.createElement('button'), { title, onclick, className: 'yt-pip-btn' });
+          b.setAttribute('aria-label', title);
           const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
           for (const [k, v] of [['width', 20], ['height', 20], ['viewBox', '0 0 20 20'], ['fill', 'none'], ['stroke', '#fff'], ['stroke-width', 2], ['stroke-linecap', 'round'], ['stroke-linejoin', 'round']]) svg.setAttribute(k, v);
           const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
