@@ -532,12 +532,43 @@ sealed class PipForm : Form
             // the bar YouTube draws for a watched video, a red strip along the thumbnail's bottom edge, covered whole
             + '.yt-pip-watched { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 10; background: #717171; pointer-events: none; }'
             + '.yt-pip-watched > div { height: 100%; background: #f03; }'
-            + '.yt-pip-now { background: rgba(255, 255, 255, .12); box-shadow: 0 0 0 8px rgba(255, 255, 255, .12); border-radius: 12px; outline: 2px solid #f03; outline-offset: 8px; }' })));
-        // At least two columns however narrow the panel; YouTube itself drops to one below ~550px.
+            + '.yt-pip-now { background: rgba(255, 255, 255, .12); box-shadow: 0 0 0 8px rgba(255, 255, 255, .12); border-radius: 12px; outline: 2px solid #f03; outline-offset: 8px; }'
+            // A panel as short as the PIP beside it showed one row of the grid (288px, 2026-10-11): YouTube's own cards laid
+            // on their side, a small thumbnail beside the title, about three to a screen. Never an ad's: those stay as
+            // YouTube draws them.
+            + '@media (max-height: 499px) {'
+            + ' ytd-rich-item-renderer { margin-bottom: 12px !important; }'
+            + ' ytd-rich-item-renderer yt-lockup-view-model:not(ytd-ad-slot-renderer *) > .ytLockupViewModelVertical { flex-direction: row; align-items: flex-start; }'
+            + ' yt-lockup-view-model:not(ytd-ad-slot-renderer *) > div > .ytLockupViewModelContentImage { width: 128px !important; flex: none !important; margin: 0 12px 0 0 !important; }'
+            + ' yt-lockup-view-model:not(ytd-ad-slot-renderer *) > div > .ytLockupViewModelMetadata { flex: 1; min-width: 0; }'
+            + ' ytd-rich-item-renderer yt-lockup-view-model:not(ytd-ad-slot-renderer *) .ytLockupMetadataViewModelAvatar { display: none; }'
+            + ' .yt-pip-now { box-shadow: 0 0 0 4px rgba(255, 255, 255, .12); outline-offset: 4px; } }'
+            // Search results kept their 240px thumbnail and left the text a 46px column in a 360px panel: rows the same way.
+            + '@media (max-width: 499px), (max-height: 499px) {'
+            + ' ytd-search ytd-video-renderer { margin-top: 12px !important; }'
+            + ' ytd-search ytd-video-renderer ytd-thumbnail.ytd-video-renderer { flex: none !important; width: 128px !important; min-width: 0 !important; max-width: none !important; margin-right: 12px !important; }'
+            + ' ytd-search ytd-video-renderer :is(#expandable-metadata, .metadata-snippet-container, .metadata-snippet-container-one-line, #channel-thumbnail) { display: none !important; }'
+            + ' ytd-search ytd-video-renderer #video-title { font-size: 1.4rem !important; line-height: 2rem !important; max-height: 4rem !important; } }'
+            // the bar (and home's chips, fixed under it once scrolled) slid away while scrolling down (hideBar())
+            + '#masthead-container, #frosted-glass, #chips-wrapper { transition: transform .2s cubic-bezier(.2, .8, .2, 1); }'
+            + '.yt-pip-hidebar :is(#masthead-container, #frosted-glass) { transform: translateY(-100%); } .yt-pip-hidebar #chips-wrapper { transform: translateY(-112px); }'
+            + '@media (prefers-reduced-motion: reduce) { #masthead-container, #frosted-glass, #chips-wrapper { transition: none; } }' })));
+        const short = () => innerHeight < 500;
+        // At least two columns however narrow the panel (YouTube itself drops to one below ~550px); one, as rows, in a short one.
         const columns = () => {
           const g = document.querySelector('ytd-rich-grid-renderer');
-          if (g) g.style.setProperty('--ytd-rich-grid-items-per-row', Math.max(2, Math.floor(innerWidth / 300)), 'important');
+          if (g) g.style.setProperty('--ytd-rich-grid-items-per-row', short() ? 1 : Math.max(2, Math.floor(innerWidth / 300)), 'important');
+          if (!short()) document.documentElement.classList.remove('yt-pip-hidebar');
         };
+        // In a short panel the bar goes while scrolling down and comes back on any move up, or once focus moves into it
+        // (Tab). Not kept while focus stays in it: after a search (Enter) or a click on ✕/← it stays there.
+        let lastY = 0;
+        addEventListener('scroll', () => {
+          const down = scrollY > lastY;
+          lastY = scrollY;
+          document.documentElement.classList.toggle('yt-pip-hidebar', short() && down && scrollY > 56);
+        }, { passive: true });
+        addEventListener('focusin', e => { if (e.target.closest?.('ytd-masthead')) document.documentElement.classList.remove('yt-pip-hidebar'); });
         // Close and back buttons before the masthead's menu button (put back if YouTube re-renders the bar); back only
         // when there is somewhere to go back to (a search, a playlist). DOM nodes, not markup: YouTube enforces Trusted Types.
         const button = (title, d, onclick) => {
