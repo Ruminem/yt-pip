@@ -487,7 +487,11 @@ sealed class PipForm : Form
           chrome.webview.postMessage('https://www.youtube.com/shorts/' + (r.videoId || ''));
         }, true);
         addEventListener('click', e => {
-          const a = e.target.closest && e.target.closest('a[href*="/watch?v="], a[href*="/shorts/"]');
+          const watch = 'a[href*="/watch?v="], a[href*="/shorts/"]';
+          // a row's plain text (views, date, blank) plays it too, by YouTube's own handler with no link to catch: the
+          // panel went to the video and played it before the host moved it to the PIP. Not its menu or channel link.
+          const a = e.target.closest && (e.target.closest(watch)
+            || !e.target.closest('a, button, [role="button"]') && e.target.closest('yt-lockup-view-model')?.querySelector(watch));
           if (!a) return;
           e.preventDefault(); e.stopImmediatePropagation();
           const u = new URL(a.href);
