@@ -162,7 +162,8 @@ sealed class PipForm : Form
             + '.yt-pip-big:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }'
             + '.yt-pip-big[aria-pressed=true] { background: rgba(255, 255, 255, 0.25); }'
             + '.yt-pip-bigs.yt-pip-small { gap: 4px; } .yt-pip-small .yt-pip-big { width: 40px; height: 40px; }'
-            + 'html.yt-pip-shorts:not(:hover) .yt-pip-bigs { opacity: 0; transition: opacity 0.2s; }'  // with YouTube's top controls
+            // with YouTube's top controls; kept while reached with the keyboard (Tab landed on unseen buttons), not after a click
+            + 'html.yt-pip-shorts:not(:hover) .yt-pip-bigs:not(:has(:focus-visible)) { opacity: 0; transition: opacity 0.2s; }'
             + 'html.yt-pip-cmts:not(.yt-pip-cmts-left) .yt-pip-bigs:not([style*=right]) { right: calc(100vw - var(--yt-pip-vw) + 64px); }'
             // the wider page gets YouTube's desktop layout, buttons right of the video (under the comments): back over its edge
             + 'html.yt-pip-cmts ytd-shorts .ytReelPlayerOverlayViewModelActionsContainer { position: absolute !important; left: calc(var(--yt-pip-vw) - 72px) !important; top: 0 !important; bottom: 0 !important; }'
