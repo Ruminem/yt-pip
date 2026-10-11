@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.41 — 2026-10-11
+
+- Pausing the PIP no longer shrinks the video with black bars beside it: the title bar grows out above the video instead, and folds away when it plays again.
+- The PIP's player bar has 10-second back and forward buttons, to move through a video with the mouse alone. They are not shown during ads.
+
+**한국어**
+
+- PIP 를 일시정지해도 영상이 줄어들며 양옆에 검은 띠가 생기지 않음. 제목 표시줄이 영상 위쪽 바깥으로 나오고, 다시 재생하면 접힘.
+- PIP 컨트롤 바에 10초 뒤로·앞으로 버튼이 생겨 마우스만으로 영상을 앞뒤로 옮길 수 있음. 광고 중에는 안 보임.
+
 ## 0.1.40 — 2026-10-11
 
 - Shorts have a watch list button at the top, next to the back button.
