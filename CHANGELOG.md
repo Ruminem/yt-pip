@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.44 — 2026-10-11
+
+- Picking a video in the watch list by its views, date or the blank part of its row now plays it straight in the PIP. Before, it started playing inside the watch list for a moment and then moved to the PIP.
+
+**한국어**
+
+- 볼 목록에서 영상 줄의 조회수 · 날짜나 빈 자리를 눌러도 바로 PIP 에서 재생됨. 전엔 볼 목록 안에서 잠깐 재생되다가 PIP 로 넘어갔음.
+
 ## 0.1.43 — 2026-10-11
 
 - In the PIP, the watch list, YouTube Music and always-on-top buttons now sit over the video's top right, like the Shorts buttons, at every window size. In the control bar they disappeared one by one as the window got narrower. Only the 10-second seek buttons stay in the bar.
