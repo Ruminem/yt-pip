@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.40 — 2026-10-11
+
+- Shorts have a watch list button at the top, next to the back button.
+- Clicking a playlist in the watch list opens it there instead of playing its first video. A Mix still plays.
+- In a narrow full-screen player, our buttons step aside instead of covering YouTube's "more videos" button.
+- The paused menu (≡) no longer shows during an ad, where it covered the sponsor card.
+- The paused menu can turn always on top on and off, with a check while it is on.
+- The watch list button shows when the list is open, and the paused menu and Shorts buttons show a ring when reached with the keyboard.
+
+**한국어**
+
+- 쇼츠 위쪽 돌아가기 버튼 옆에 볼 목록 버튼이 생김.
+- 볼 목록에서 재생목록을 누르면 첫 영상을 재생하지 않고 목록에 펼침. 믹스는 그대로 재생함.
+- 좁은 전체화면 플레이어에서 우리 버튼이 YouTube 의 "동영상 더보기" 버튼을 덮지 않고 비켜남.
+- 일시정지 메뉴(≡)가 광고 중에는 안 뜸. 스폰서 카드를 덮고 있었음.
+- 일시정지 메뉴에서 항상 위에 표시를 켜고 끌 수 있고, 켜져 있으면 ✓ 표시가 붙음.
+- 볼 목록 버튼이 목록이 열려 있으면 그렇게 보이고, 일시정지 메뉴와 쇼츠 버튼은 키보드로 가면 테두리가 보임.
+
 ## 0.1.39 — 2026-10-11
 
 - The watch list no longer scrolls sideways, and its scrollbar is thin.
