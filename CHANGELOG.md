@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.39 — 2026-10-11
+
+- The watch list no longer scrolls sideways, and its scrollbar is thin.
+- More room to type in the watch list's search box: the on-screen keyboard button is gone from it.
+- The watch list's close and back buttons show when pressed and when reached with the keyboard.
+
+**한국어**
+
+- 볼 목록이 가로로 스크롤되지 않고, 스크롤바가 얇아짐.
+- 볼 목록 검색칸에서 화상 키보드 버튼을 빼 입력칸이 넓어짐.
+- 볼 목록의 닫기·뒤로 버튼이 눌렀을 때와 키보드로 갔을 때 표시됨.
+
 ## 0.1.38 — 2026-10-11
 
 - The PIP's shape change between a video and a Short now runs at around 100+ frames a second instead of about 25.
