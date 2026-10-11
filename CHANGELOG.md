@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.43 — 2026-10-11
+
+- In the PIP, the watch list, YouTube Music and always-on-top buttons now sit over the video's top right, like the Shorts buttons, at every window size. In the control bar they disappeared one by one as the window got narrower. Only the 10-second seek buttons stay in the bar.
+- While always-on-top is on, the window's border turns red (Windows 11), so you can tell it is on while the video plays.
+- On a Short, the buttons at the top stay visible when you reach them with Tab.
+
+**한국어**
+
+- PIP 에서 볼 목록 · YouTube Music · 항상 위 버튼이 쇼츠 버튼처럼 영상 위 오른쪽에 나오고, 창이 몇 폭이든 셋 다 보임. 컨트롤 바에 있을 땐 창이 좁아질수록 하나씩 사라졌음. 바에는 10초 뒤로 · 앞으로만 남음.
+- 항상 위가 켜져 있으면 창 테두리가 빨간색이 되어(Windows 11) 재생 중에도 켜진 걸 알 수 있음.
+- 쇼츠 위쪽 버튼에 Tab 으로 가면 버튼이 보임.
+
 ## 0.1.42 — 2026-10-11
 
 - In a watch list as short as the PIP beside it, videos are listed as rows (a small thumbnail beside the title), about three to a screen instead of one. A taller list keeps the grid. Ads stay as YouTube draws them.
