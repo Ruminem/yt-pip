@@ -311,24 +311,39 @@ sealed class PipForm : Form
               big.style.top = rc ? rc.top + (rc.height - (small ? 40 : 48)) / 2 + 'px' : '';
             }
             const group = !isMusic && document.querySelector('#movie_player .ytp-right-controls-left');
+            // 10초 뒤로·앞으로 by the mouse alone (user, 2026-10-11): YouTube's J/L, which a script's key does not press (measured),
+            // so its player's seek. Never in an ad: forward there would skip it.
+            const seek = s => { const p = document.querySelector('#movie_player'); if (p && !p.classList.contains('ad-showing')) p.seekTo(p.getCurrentTime() + s, true); };
+            const seekButton = (s, ...ds) => {
+              const b = Object.assign(ctlButton('seek', ...ds), { onclick: e => { e.stopPropagation(); seek(s); } });
+              const t = Object.assign(document.createElementNS('http://www.w3.org/2000/svg', 'text'), { textContent: '10' });
+              for (const [k, v] of [['x', 12], ['y', 16], ['text-anchor', 'middle'], ['font-size', 8], ['font-weight', 700], ['fill', '#fff'], ['stroke', 'none']]) t.setAttribute(k, v);
+              b.querySelector('svg').append(t);
+              return b;
+            };
             if (group && !ctls) ctls = [
+              seekButton(-10, 'M12 5A8 8 0 1 1 4 13', 'M14.5 2.5L12 5l2.5 2.5'),                          // a circle's arrow turning back
+              seekButton(10, 'M12 5A8 8 0 1 0 20 13', 'M9.5 2.5L12 5 9.5 7.5'),                            // and on
               ctlButton('list', 'M4 5h16v14H4zM14 5v14', 'M14 5h6v14h-6z'),                              // a window with a panel on its right
               ctlButton('music', 'M10 17V5l9-2v12', 'M10 17a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0', 'M19 15a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0'),  // a note pair
               ctlButton('ontop', 'M4 14V4h11v4', 'M9 9h11v11H9z')];                                    // a window over another
             if (group && ctls[0].parentNode !== group) group.prepend(...ctls);
             if (ctls) {
-              const [list, music, onTop] = ctls;
+              const [back, fwd, list, music, onTop] = ctls;
               list.style.display = state.mode === 'pip' ? 'inline-flex' : 'none';
+              back.style.display = fwd.style.display = state.mode === 'pip' && !document.querySelector('#movie_player.ad-showing') ? 'inline-flex' : 'none';
               // YouTube's "동영상 더보기" (^) sits in the middle of the bar, its own buttons laid out to stay clear of it; these
-              // three widen them by 144px, over it in a 600-680px window (user's shot, 2026-10-11). Off one by one till clear,
-              // Music first, a rare switch; 항상 위 shows its state (all three are in the title bar's menu too).
-              // Its middle by the player's, not its own box: that has no size while the bar is hidden, and a check only once
-              // it shows would leave them over it until the next one.
+              // widen them, over it in a 600-680px window (user's shot, 2026-10-11). Off one by one till clear, Music first, a
+              // rare switch; 항상 위 shows its state; 볼 목록 (all three are in the title bar's menu too); the seeks last, the
+              // mouse's only way. Its middle by the player's, not its own box: that has no size while the bar is hidden, and a
+              // check only once it shows would leave them over it until the next one.
               music.style.display = onTop.style.display = '';
               const p = group && document.fullscreenElement && document.querySelector('#movie_player:has(.ytp-fullscreen-grid-expand-button)')?.getBoundingClientRect();
-              for (const b of [music, onTop, list])
+              for (const b of [music, onTop, list, fwd, back])
                 if (p && group.getBoundingClientRect().left < p.left + p.width / 2 + 28) b.style.display = 'none';
               list.title = state.list ? '볼 목록 닫기' : '볼 목록 열기';
+              back.title = '10초 뒤로';
+              fwd.title = '10초 앞으로';
               music.title = 'YouTube Music으로 전환';
               onTop.title = state.onTop ? '항상 위에 표시 끄기' : '항상 위에 표시';
               onTop.querySelectorAll('path')[1].setAttribute('fill', state.onTop ? 'rgba(255,255,255,.45)' : 'none');  // filled while on
