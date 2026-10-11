@@ -150,14 +150,17 @@ sealed class PipForm : Form
             + 'html.yt-pip-cmts-left .yt-pip-glass { left: 0; right: auto; }'
             // no dimming over the video, which also took the wheel from it (the next Short)
             + 'html.yt-pip-shorts ytd-shorts #anchored-panel-scrim { display: none !important; }'
-            // MenuJs's way back to the big window (the Shorts page has no fullscreen to leave): left of YouTube's ⋮, as it looks
-            // (MenuJs moves it beside whatever buttons YouTube has there)
-            + '.yt-pip-big { display: none; }'
-            + 'html.yt-pip-shorts .yt-pip-big { display: flex; position: fixed; top: 16px; right: 64px; z-index: 2100; width: 48px; height: 48px; padding: 0; border: 0;'
+            // MenuJs's 볼 목록 and way back to the big window (the Shorts page has no fullscreen to leave): left of YouTube's ⋮,
+            // as they look (MenuJs moves them beside whatever buttons YouTube has there)
+            + '.yt-pip-bigs { display: none; }'
+            + 'html.yt-pip-shorts .yt-pip-bigs { display: flex; gap: 8px; position: fixed; top: 16px; right: 64px; z-index: 2100; }'
+            + '.yt-pip-big { display: flex; width: 48px; height: 48px; padding: 0; border: 0;'
             + ' border-radius: 50%; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.3); cursor: pointer; }'
-            + 'html.yt-pip-shorts .yt-pip-big:hover { background: rgba(0, 0, 0, 0.5); }'
-            + 'html.yt-pip-shorts:not(:hover) .yt-pip-big { opacity: 0; transition: opacity 0.2s; }'  // with YouTube's top controls
-            + 'html.yt-pip-cmts:not(.yt-pip-cmts-left) .yt-pip-big:not([style*=right]) { right: calc(100vw - var(--yt-pip-vw) + 64px); }'
+            + '.yt-pip-big:hover { background: rgba(0, 0, 0, 0.5); }'
+            + '.yt-pip-big[aria-pressed=true] { background: rgba(255, 255, 255, 0.25); }'
+            + '.yt-pip-bigs.yt-pip-small { gap: 4px; } .yt-pip-small .yt-pip-big { width: 40px; height: 40px; }'
+            + 'html.yt-pip-shorts:not(:hover) .yt-pip-bigs { opacity: 0; transition: opacity 0.2s; }'  // with YouTube's top controls
+            + 'html.yt-pip-cmts:not(.yt-pip-cmts-left) .yt-pip-bigs:not([style*=right]) { right: calc(100vw - var(--yt-pip-vw) + 64px); }'
             // the wider page gets YouTube's desktop layout, buttons right of the video (under the comments): back over its edge
             + 'html.yt-pip-cmts ytd-shorts .ytReelPlayerOverlayViewModelActionsContainer { position: absolute !important; left: calc(var(--yt-pip-vw) - 72px) !important; top: 0 !important; bottom: 0 !important; }'
             + 'html.yt-pip-cmts ytd-shorts .ytReelPlayerOverlayViewModelMetadataContainer { width: calc(var(--yt-pip-vw) - 72px) !important; }' })));
@@ -223,7 +226,7 @@ sealed class PipForm : Form
     const string MenuJs = """
         (() => {
           const isMusic = location.host === 'music.youtube.com';
-          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, musicItem, listItem, ctls, layout = '', panel = false, vw = 0, side = null, shown = false, asked, big, glass, paint = 0, lastShort = '', fresh = 0, fsPanel = '';
+          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, musicItem, listItem, ctls, layout = '', panel = false, vw = 0, side = null, shown = false, asked, big, bigList, glass, paint = 0, lastShort = '', fresh = 0, fsPanel = '';
           // The host's picks in the player's own controls, before autoplay/subtitles/settings (the left-edge menu shows only
           // while paused): 볼 목록 (PIP only), YouTube Music, 항상 위. Icons drawn here, each a set of path outlines.
           const ctlButton = (cmd, ...ds) => {
@@ -277,15 +280,32 @@ sealed class PipForm : Form
               paint = ready ? setInterval(() => { const v = document.querySelector('#shorts-player video'); if (v?.videoWidth) glass.getContext('2d').drawImage(v, 0, 0, 16, 28); }, 250) : 0;
             }
             if (shorts && !big && document.body) {
-              big = Object.assign(ctlButton('browse', 'M19 12H5M11 6l-6 6 6 6'), { className: 'yt-pip-big', title: '돌아가기' });  // an arrow back
-              big.setAttribute('aria-label', '돌아가기');
+              const back = Object.assign(ctlButton('browse', 'M19 12H5M11 6l-6 6 6 6'), { className: 'yt-pip-big', title: '돌아가기' });  // an arrow back
+              back.setAttribute('aria-label', '돌아가기');
+              bigList = Object.assign(ctlButton('list', 'M4 5h16v14H4zM14 5v14'), { className: 'yt-pip-big' });  // as in the player's controls
+              big = Object.assign(document.createElement('div'), { className: 'yt-pip-bigs' });
+              big.append(bigList, back);
               document.body.append(big);
+            }
+            if (bigList) {
+              bigList.title = state.list ? '볼 목록 닫기' : '볼 목록 열기';
+              bigList.setAttribute('aria-label', bigList.title);
+              bigList.setAttribute('aria-pressed', state.list);
             }
             // left of YouTube's buttons at the top right, which vary (⋮ alone; CC and expand signed in, which it covered,
             // 2026-10-10): beside them wherever they are, the CSS's place when there are none
-            const rc = shorts && big && [...document.querySelectorAll('ytd-shorts #right-controls')]
-              .map(e => e.getBoundingClientRect()).find(r => r.width && r.top >= 0 && r.top < innerHeight / 2);
-            if (big) { big.style.right = rc ? innerWidth - rc.left + 8 + 'px' : ''; big.style.top = rc ? rc.top + (rc.height - 48) / 2 + 'px' : ''; }
+            const near = sel => [...document.querySelectorAll(sel)].find(e => (r => r.width && r.top >= 0 && r.top < innerHeight / 2)(e.getBoundingClientRect()));
+            const rc = shorts && big && near('ytd-shorts #right-controls')?.getBoundingClientRect();
+            // Between them and YouTube's play and mute at the top left: 100px in the PIP's usual 280 (2026-10-11), where two of
+            // these at full size went over mute. Smaller there; with less still, no 볼 목록 (in the paused menu too).
+            const lc = rc && near('ytd-shorts #left-controls'), room = lc && rc.left - Math.max(0, ...[...lc.querySelectorAll('button')].map(b => b.getBoundingClientRect().right));
+            const small = room < 120;
+            if (big) {
+              big.classList.toggle('yt-pip-small', small);
+              bigList.style.display = room < 100 ? 'none' : '';
+              big.style.right = rc ? innerWidth - rc.left + 8 + 'px' : '';
+              big.style.top = rc ? rc.top + (rc.height - (small ? 40 : 48)) / 2 + 'px' : '';
+            }
             const group = !isMusic && document.querySelector('#movie_player .ytp-right-controls-left');
             if (group && !ctls) ctls = [
               ctlButton('list', 'M4 5h16v14H4zM14 5v14'),                                               // a window with a panel on its right
@@ -295,6 +315,15 @@ sealed class PipForm : Form
             if (ctls) {
               const [list, music, onTop] = ctls;
               list.style.display = state.mode === 'pip' ? 'inline-flex' : 'none';
+              // YouTube's "동영상 더보기" (^) sits in the middle of the bar, its own buttons laid out to stay clear of it; these
+              // three widen them by 144px, over it in a 600-680px window (user's shot, 2026-10-11). Off one by one till clear,
+              // Music first, a rare switch; 항상 위 shows its state (all three are in the title bar's menu too).
+              // Its middle by the player's, not its own box: that has no size while the bar is hidden, and a check only once
+              // it shows would leave them over it until the next one.
+              music.style.display = onTop.style.display = '';
+              const p = group && document.fullscreenElement && document.querySelector('#movie_player:has(.ytp-fullscreen-grid-expand-button)')?.getBoundingClientRect();
+              for (const b of [music, onTop, list])
+                if (p && group.getBoundingClientRect().left < p.left + p.width / 2 + 28) b.style.display = 'none';
               list.title = state.list ? '볼 목록 닫기' : '볼 목록 열기';
               music.title = 'YouTube Music으로 전환';
               onTop.title = state.onTop ? '항상 위에 표시 끄기' : '항상 위에 표시';
@@ -409,11 +438,13 @@ sealed class PipForm : Form
           if (!id) return;
           const list = u.searchParams.get('list'), index = u.searchParams.get('index');
           // A playlist's own link (its title, thumbnail: the entry's first link; in search results /watch?v=<first>&list=,
-          // 2026-10-10) opens the playlist: the host plays its first video only if the PIP is not in that playlist already.
+          // 2026-10-10) opens the playlist.
           // By the href, not the entry the link is in: a click after hovering lands on YouTube's inline preview, a link
           // to the same place outside the entry (2026-10-10: the first video played every time).
           const own = list && !index && [...document.querySelectorAll('yt-lockup-view-model, ytd-playlist-renderer, ytd-radio-renderer')]
             .some(b => b.querySelector('a[href*="list="]')?.href === a.href);
+          // only spread out here, nothing played (user, 2026-10-11); a Mix has no page to show, so it plays
+          if (own && !list.startsWith('RD')) return location.assign('/playlist?list=' + list);
           if (own) chrome.webview.postMessage('playlist:' + list + ':' + id);
           else chrome.webview.postMessage('https://www.youtube.com/watch?v=' + id + (list ? '&list=' + list + (index ? '&index=' + index : '') : ''));
           // not a Mix (RD...): YouTube has no page for those ("볼 수 없는 재생목록 유형", 2026-10-05)
