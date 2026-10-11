@@ -157,6 +157,9 @@ sealed class PipForm : Form
             + '.yt-pip-big { display: flex; width: 48px; height: 48px; padding: 0; border: 0;'
             + ' border-radius: 50%; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.3); cursor: pointer; }'
             + '.yt-pip-big:hover { background: rgba(0, 0, 0, 0.5); }'
+            // a shadow under the strokes, as YouTube's own icons over the video have: they went missing on a bright frame
+            + '.yt-pip-big svg { filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.8)); }'
+            + '.yt-pip-big:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }'
             + '.yt-pip-big[aria-pressed=true] { background: rgba(255, 255, 255, 0.25); }'
             + '.yt-pip-bigs.yt-pip-small { gap: 4px; } .yt-pip-small .yt-pip-big { width: 40px; height: 40px; }'
             + 'html.yt-pip-shorts:not(:hover) .yt-pip-bigs { opacity: 0; transition: opacity 0.2s; }'  // with YouTube's top controls
@@ -226,7 +229,7 @@ sealed class PipForm : Form
     const string MenuJs = """
         (() => {
           const isMusic = location.host === 'music.youtube.com';
-          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, musicItem, listItem, ctls, layout = '', panel = false, vw = 0, side = null, shown = false, asked, big, bigList, glass, paint = 0, lastShort = '', fresh = 0, fsPanel = '';
+          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, toggle, musicItem, listItem, onTopItem, ctls, layout = '', panel = false, vw = 0, side = null, shown = false, asked, big, bigList, glass, paint = 0, lastShort = '', fresh = 0, fsPanel = '';
           // The host's picks in the player's own controls, before autoplay/subtitles/settings (the left-edge menu shows only
           // while paused): 볼 목록 (PIP only), YouTube Music, 항상 위. Icons drawn here, each a set of path outlines.
           const ctlButton = (cmd, ...ds) => {
@@ -282,7 +285,7 @@ sealed class PipForm : Form
             if (shorts && !big && document.body) {
               const back = Object.assign(ctlButton('browse', 'M19 12H5M11 6l-6 6 6 6'), { className: 'yt-pip-big', title: '돌아가기' });  // an arrow back
               back.setAttribute('aria-label', '돌아가기');
-              bigList = Object.assign(ctlButton('list', 'M4 5h16v14H4zM14 5v14'), { className: 'yt-pip-big' });  // as in the player's controls
+              bigList = Object.assign(ctlButton('list', 'M4 5h16v14H4zM14 5v14', 'M14 5h6v14h-6z'), { className: 'yt-pip-big' });  // as in the player's controls
               big = Object.assign(document.createElement('div'), { className: 'yt-pip-bigs' });
               big.append(bigList, back);
               document.body.append(big);
@@ -291,6 +294,7 @@ sealed class PipForm : Form
               bigList.title = state.list ? '볼 목록 닫기' : '볼 목록 열기';
               bigList.setAttribute('aria-label', bigList.title);
               bigList.setAttribute('aria-pressed', state.list);
+              bigList.querySelectorAll('path')[1].setAttribute('fill', state.list ? 'rgba(255,255,255,.45)' : 'none');  // the panel filled while open
             }
             // left of YouTube's buttons at the top right, which vary (⋮ alone; CC and expand signed in, which it covered,
             // 2026-10-10): beside them wherever they are, the CSS's place when there are none
@@ -308,7 +312,7 @@ sealed class PipForm : Form
             }
             const group = !isMusic && document.querySelector('#movie_player .ytp-right-controls-left');
             if (group && !ctls) ctls = [
-              ctlButton('list', 'M4 5h16v14H4zM14 5v14'),                                               // a window with a panel on its right
+              ctlButton('list', 'M4 5h16v14H4zM14 5v14', 'M14 5h6v14h-6z'),                              // a window with a panel on its right
               ctlButton('music', 'M10 17V5l9-2v12', 'M10 17a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0', 'M19 15a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0'),  // a note pair
               ctlButton('ontop', 'M4 14V4h11v4', 'M9 9h11v11H9z')];                                    // a window over another
             if (group && ctls[0].parentNode !== group) group.prepend(...ctls);
@@ -328,6 +332,9 @@ sealed class PipForm : Form
               music.title = 'YouTube Music으로 전환';
               onTop.title = state.onTop ? '항상 위에 표시 끄기' : '항상 위에 표시';
               onTop.querySelectorAll('path')[1].setAttribute('fill', state.onTop ? 'rgba(255,255,255,.45)' : 'none');  // filled while on
+              list.querySelectorAll('path')[1].setAttribute('fill', state.list ? 'rgba(255,255,255,.45)' : 'none');    // its panel, while open
+              list.setAttribute('aria-pressed', state.list);
+              onTop.setAttribute('aria-pressed', state.onTop);
               for (const b of ctls) b.setAttribute('aria-label', b.title);
             }
             // For the log: what a panel over the fullscreen video is made of, 2 s after it opens (the title opened an empty
@@ -342,16 +349,20 @@ sealed class PipForm : Form
             if (!host) return;
             const v = document.querySelector(shorts ? '#shorts-player video' : '#movie_player video') || document.querySelector('video');
             // in Music always: there it is the only way back besides the title bar menu
-            const show = isMusic ? state.mode === 'music' : state.mode === 'pip' && v && v.paused && (document.fullscreenElement || shorts);
+            // not while an ad shows: at the left middle it lay over the ad's sponsor card (critique, 2026-10-11)
+            const show = isMusic ? state.mode === 'music' : state.mode === 'pip' && v && v.paused && (document.fullscreenElement || shorts) && !v.closest('.ad-showing');
             // in Music it sits in the top bar before the cast/settings icons, so the bar lays it out (put back if re-rendered)
             // (the host keeps the Music window wide enough that its mobile layout never hides the bar)
             const bar = isMusic && document.querySelector('ytmusic-nav-bar #right-content');
             if (bar && host.parentNode !== bar) bar.prepend(host);
             host.style.display = show ? (isMusic ? 'flex' : 'block') : 'none';
             if (!show) menu.classList.remove('open');
+            if (!isMusic) toggle.setAttribute('aria-expanded', menu.classList.contains('open'));
             musicItem.textContent = isMusic ? 'YouTube로 전환' : 'YouTube Music으로 전환';
             listItem.textContent = state.list ? '볼 목록 닫기' : '볼 목록 열기';
-            listItem.style.display = isMusic ? 'none' : 'block';
+            listItem.style.display = onTopItem.style.display = isMusic ? 'none' : 'block';
+            onTopItem.textContent = (state.onTop ? '✓ ' : '') + '항상 위에 표시';
+            onTopItem.setAttribute('aria-checked', state.onTop);
           };
           const build = () => {
             host = document.createElement('div');
@@ -369,10 +380,12 @@ sealed class PipForm : Form
                      background: rgba(28,28,28,.96); box-shadow: 0 4px 16px rgba(0,0,0,.5); }
                 .m.open { display: block; }
                 .pill { width: auto; height: 36px; padding: 0 16px; border-radius: 18px; background: rgba(255,255,255,.1);
-                        color: #fff; font: 500 14px "Segoe UI", sans-serif; white-space: nowrap; }
-                .pill:hover { background: rgba(255,255,255,.2); }                .m button { display: block; width: 100%; padding: 9px 14px; border: 0; border-radius: 6px; background: none; color: #fff;
-                            font: 14px "Segoe UI", sans-serif; text-align: left; white-space: nowrap; cursor: pointer; }
-                .m button:hover { background: rgba(255,255,255,.12); }` });
+                        color: #fff; font: 500 14px Roboto, Arial, sans-serif; white-space: nowrap; }
+                .pill:hover { background: rgba(255,255,255,.2); }
+                .m button { display: block; width: 100%; padding: 9px 14px; border: 0; border-radius: 6px; background: none; color: #fff;
+                            font: 14px Roboto, Arial, sans-serif; text-align: left; white-space: nowrap; cursor: pointer; }
+                .m button:hover { background: rgba(255,255,255,.12); }
+                button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }` });
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             for (const [k, v] of [['width', 18], ['height', 18], ['viewBox', '0 0 18 18'], ['fill', '#fff']]) svg.setAttribute(k, v);
             for (const y of [3, 8, 13]) {
@@ -381,11 +394,14 @@ sealed class PipForm : Form
               svg.append(r);
             }
             // Music has a single pick, so the button is that pick
-            const button = isMusic ? el('button', { className: 'b pill', textContent: 'YouTube로 전환', onclick: () => chrome.webview.postMessage('menu:music') })
-              : el('button', { className: 'b', title: '메뉴', onclick: () => menu.classList.toggle('open') }, svg);
+            const button = toggle = isMusic ? el('button', { className: 'b pill', textContent: 'YouTube로 전환', onclick: () => chrome.webview.postMessage('menu:music') })
+              : el('button', { className: 'b', title: '메뉴', onclick: () => { menu.classList.toggle('open'); update(); } }, svg);
+            if (!isMusic) { button.setAttribute('aria-label', '메뉴'); button.setAttribute('aria-haspopup', 'menu'); }
             musicItem = el('button'); musicItem.dataset.cmd = 'music';
             listItem = el('button'); listItem.dataset.cmd = 'list';
-            menu = el('div', { className: 'm' }, musicItem, listItem);
+            // 항상 위 too: the control bar drops its button in a narrow window (above), and its state showed nowhere else
+            onTopItem = el('button', { role: 'menuitemcheckbox' }); onTopItem.dataset.cmd = 'ontop';
+            menu = el('div', { className: 'm' }, musicItem, listItem, onTopItem);
             root.append(style, button, menu);
             menu.onclick = e => {
               const cmd = e.target.dataset && e.target.dataset.cmd;
@@ -501,7 +517,7 @@ sealed class PipForm : Form
             // the bar YouTube draws for a watched video, a red strip along the thumbnail's bottom edge, covered whole
             + '.yt-pip-watched { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 10; background: #717171; pointer-events: none; }'
             + '.yt-pip-watched > div { height: 100%; background: #f03; }'
-            + '.yt-pip-now { background: rgba(255, 255, 255, .12); box-shadow: 0 0 0 6px rgba(255, 255, 255, .12); border-radius: 12px; outline: 2px solid #f03; outline-offset: 6px; }' })));
+            + '.yt-pip-now { background: rgba(255, 255, 255, .12); box-shadow: 0 0 0 8px rgba(255, 255, 255, .12); border-radius: 12px; outline: 2px solid #f03; outline-offset: 8px; }' })));
         // At least two columns however narrow the panel; YouTube itself drops to one below ~550px.
         const columns = () => {
           const g = document.querySelector('ytd-rich-grid-renderer');
