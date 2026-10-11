@@ -164,6 +164,10 @@ sealed class PipForm : Form
             + '.yt-pip-bigs.yt-pip-small { gap: 4px; } .yt-pip-small .yt-pip-big { width: 40px; height: 40px; }'
             // with YouTube's top controls; kept while reached with the keyboard (Tab landed on unseen buttons), not after a click
             + 'html.yt-pip-shorts:not(:hover) .yt-pip-bigs:not(:has(:focus-visible)) { opacity: 0; transition: opacity 0.2s; }'
+            // the PIP's set (MenuJs's tops): in the player, which is what fullscreen shows; with its controls; never over an ad
+            + '.yt-pip-tops { gap: 8px; position: absolute; z-index: 60; transition: opacity 0.2s; }'
+            + '#movie_player.ytp-autohide .yt-pip-tops:not(:hover):not(:has(:focus-visible)) { opacity: 0; }'
+            + '#movie_player.ad-showing .yt-pip-tops { display: none !important; }'
             + 'html.yt-pip-cmts:not(.yt-pip-cmts-left) .yt-pip-bigs:not([style*=right]) { right: calc(100vw - var(--yt-pip-vw) + 64px); }'
             // the wider page gets YouTube's desktop layout, buttons right of the video (under the comments): back over its edge
             + 'html.yt-pip-cmts ytd-shorts .ytReelPlayerOverlayViewModelActionsContainer { position: absolute !important; left: calc(var(--yt-pip-vw) - 72px) !important; top: 0 !important; bottom: 0 !important; }'
@@ -230,12 +234,13 @@ sealed class PipForm : Form
     const string MenuJs = """
         (() => {
           const isMusic = location.host === 'music.youtube.com';
-          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, toggle, musicItem, listItem, onTopItem, ctls, layout = '', panel = false, vw = 0, side = null, shown = false, asked, big, bigList, glass, paint = 0, lastShort = '', fresh = 0, fsPanel = '';
-          // The host's picks in the player's own controls, before autoplay/subtitles/settings (the left-edge menu shows only
-          // while paused): 볼 목록 (PIP only), YouTube Music, 항상 위. Icons drawn here, each a set of path outlines.
+          let state = { mode: 'none', list: false, onTop: false, comments: null }, host, menu, toggle, musicItem, listItem, onTopItem, ctls, layout = '', panel = false, vw = 0, side = null, shown = false, asked, big, bigList, tops, glass, paint = 0, lastShort = '', fresh = 0, fsPanel = '';
+          // The host's picks as buttons (the left-edge menu shows only while paused): 볼 목록, YouTube Music, 항상 위 over the
+          // video's top right in the PIP, the last two in the player's controls outside it. Icons drawn here, each a set of path outlines.
           const ctlButton = (cmd, ...ds) => {
             const b = Object.assign(document.createElement('button'), { className: 'ytp-button',
               onclick: e => { e.stopPropagation(); chrome.webview.postMessage('menu:' + cmd); } });
+            b.dataset.cmd = cmd;
             b.style.cssText = 'align-items:center;justify-content:center';
             const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
             for (const [k, v] of [['width', 24], ['height', 24], ['viewBox', '0 0 24 24'], ['fill', 'none'], ['stroke', '#fff'], ['stroke-width', 2], ['stroke-linejoin', 'round']]) svg.setAttribute(k, v);
@@ -243,6 +248,9 @@ sealed class PipForm : Form
             b.append(svg);
             return b;
           };
+          const listIcon = ['M4 5h16v14H4zM14 5v14', 'M14 5h6v14h-6z'];  // a window with a panel on its right
+          const musicIcon = ['M10 17V5l9-2v12', 'M10 17a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0', 'M19 15a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0'];  // a note pair
+          const onTopIcon = ['M4 14V4h11v4', 'M9 9h11v11H9z'];  // a window over another
           const update = () => {
             // the Shorts page in the PIP gets its own layout (PlayStateJs's style); YouTube sizes its player on resize.
             // A panel (comments, description) goes beside it: it opens in the narrow window, the host picks a side, the page
@@ -286,16 +294,10 @@ sealed class PipForm : Form
             if (shorts && !big && document.body) {
               const back = Object.assign(ctlButton('browse', 'M19 12H5M11 6l-6 6 6 6'), { className: 'yt-pip-big', title: '돌아가기' });  // an arrow back
               back.setAttribute('aria-label', '돌아가기');
-              bigList = Object.assign(ctlButton('list', 'M4 5h16v14H4zM14 5v14', 'M14 5h6v14h-6z'), { className: 'yt-pip-big' });  // as in the player's controls
+              bigList = Object.assign(ctlButton('list', ...listIcon), { className: 'yt-pip-big' });
               big = Object.assign(document.createElement('div'), { className: 'yt-pip-bigs' });
               big.append(bigList, back);
               document.body.append(big);
-            }
-            if (bigList) {
-              bigList.title = state.list ? '볼 목록 닫기' : '볼 목록 열기';
-              bigList.setAttribute('aria-label', bigList.title);
-              bigList.setAttribute('aria-pressed', state.list);
-              bigList.querySelectorAll('path')[1].setAttribute('fill', state.list ? 'rgba(255,255,255,.45)' : 'none');  // the panel filled while open
             }
             // left of YouTube's buttons at the top right, which vary (⋮ alone; CC and expand signed in, which it covered,
             // 2026-10-10): beside them wherever they are, the CSS's place when there are none
@@ -325,33 +327,58 @@ sealed class PipForm : Form
             if (group && !ctls) ctls = [
               seekButton(-10, 'M12 5A8 8 0 1 1 4 13', 'M14.5 2.5L12 5l2.5 2.5'),                          // a circle's arrow turning back
               seekButton(10, 'M12 5A8 8 0 1 0 20 13', 'M9.5 2.5L12 5 9.5 7.5'),                            // and on
-              ctlButton('list', 'M4 5h16v14H4zM14 5v14', 'M14 5h6v14h-6z'),                              // a window with a panel on its right
-              ctlButton('music', 'M10 17V5l9-2v12', 'M10 17a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0', 'M19 15a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0'),  // a note pair
-              ctlButton('ontop', 'M4 14V4h11v4', 'M9 9h11v11H9z')];                                    // a window over another
+              ctlButton('music', ...musicIcon),
+              ctlButton('ontop', ...onTopIcon)];
             if (group && ctls[0].parentNode !== group) group.prepend(...ctls);
+            const pip = state.mode === 'pip';
             if (ctls) {
-              const [back, fwd, list, music, onTop] = ctls;
-              list.style.display = state.mode === 'pip' ? 'inline-flex' : 'none';
-              back.style.display = fwd.style.display = state.mode === 'pip' && !document.querySelector('#movie_player.ad-showing') ? 'inline-flex' : 'none';
+              const [back, fwd, music, onTop] = ctls;
+              back.style.display = fwd.style.display = pip && !document.querySelector('#movie_player.ad-showing') ? 'inline-flex' : 'none';
               // YouTube's "동영상 더보기" (^) sits in the middle of the bar, its own buttons laid out to stay clear of it; these
-              // widen them, over it in a 600-680px window (user's shot, 2026-10-11). Off one by one till clear, Music first, a
-              // rare switch; 항상 위 shows its state; 볼 목록 (all three are in the title bar's menu too); the seeks last, the
-              // mouse's only way. Its middle by the player's, not its own box: that has no size while the bar is hidden, and a
+              // widen them, over it in a 600-680px window (user's shot, 2026-10-11). Off one by one till clear, Music first,
+              // the seeks last. Its middle by the player's, not its own box: that has no size while the bar is hidden, and a
               // check only once it shows would leave them over it until the next one.
-              music.style.display = onTop.style.display = '';
+              music.style.display = onTop.style.display = pip ? 'none' : '';  // in the PIP over the video instead (below)
               const p = group && document.fullscreenElement && document.querySelector('#movie_player:has(.ytp-fullscreen-grid-expand-button)')?.getBoundingClientRect();
-              for (const b of [music, onTop, list, fwd, back])
+              for (const b of [music, onTop, fwd, back])
                 if (p && group.getBoundingClientRect().left < p.left + p.width / 2 + 28) b.style.display = 'none';
-              list.title = state.list ? '볼 목록 닫기' : '볼 목록 열기';
               back.title = '10초 뒤로';
               fwd.title = '10초 앞으로';
-              music.title = 'YouTube Music으로 전환';
-              onTop.title = state.onTop ? '항상 위에 표시 끄기' : '항상 위에 표시';
-              onTop.querySelectorAll('path')[1].setAttribute('fill', state.onTop ? 'rgba(255,255,255,.45)' : 'none');  // filled while on
-              list.querySelectorAll('path')[1].setAttribute('fill', state.list ? 'rgba(255,255,255,.45)' : 'none');    // its panel, while open
-              list.setAttribute('aria-pressed', state.list);
-              onTop.setAttribute('aria-pressed', state.onTop);
-              for (const b of ctls) b.setAttribute('aria-label', b.title);
+            }
+            // In the PIP 볼 목록, Music and 항상 위 sit over the video's top right, as on a Short: in the bar they went one by one
+            // as the window narrowed, none left at 560-690px (critique, 2026-10-11). With YouTube's top controls, as those are.
+            const player = !isMusic && !shorts && pip && document.fullscreenElement && document.querySelector('#movie_player');
+            if (player && !tops) {
+              tops = Object.assign(document.createElement('div'), { className: 'yt-pip-bigs yt-pip-tops' });
+              tops.append(ctlButton('list', ...listIcon), ctlButton('music', ...musicIcon), ctlButton('ontop', ...onTopIcon));
+              for (const b of tops.children) b.className = 'yt-pip-big';
+              // nor the player's own: a double click on one left fullscreen
+              for (const t of ['mousedown', 'mouseup', 'click', 'dblclick']) tops.addEventListener(t, e => e.stopPropagation());
+            }
+            if (player && tops.parentNode !== player) {
+              player.append(tops);
+              // ⋮ has no size while the controls are hidden: placed again as they show (ytp-autohide off), not up to 0.5 s later over it
+              new MutationObserver(update).observe(player, { attributes: true, attributeFilter: ['class'] });
+            }
+            if (tops) {
+              tops.style.display = player ? 'flex' : 'none';
+              // left of YouTube's ⋮ when it has one there (narrow windows), else in the corner
+              const p = player && player.getBoundingClientRect(), small = innerWidth < 560;
+              const dots = p && [...player.querySelectorAll('.ytp-chrome-top-buttons button')].map(b => b.getBoundingClientRect())
+                .filter(r => r.width && r.height && r.left > p.left + p.width / 2).sort((a, b) => a.left - b.left)[0];
+              tops.classList.toggle('yt-pip-small', small);
+              tops.style.right = (dots ? p.right - dots.left + 8 : 12) + 'px';
+              tops.style.top = (dots ? dots.top - p.top + (dots.height - (small ? 40 : 48)) / 2 : 12) + 'px';
+            }
+            const on = { list: state.list, ontop: state.onTop };
+            const titles = { list: state.list ? '볼 목록 닫기' : '볼 목록 열기', music: 'YouTube Music으로 전환', ontop: state.onTop ? '항상 위에 표시 끄기' : '항상 위에 표시' };
+            for (const b of [...ctls || [], ...tops?.children || [], ...bigList ? [bigList] : []]) {
+              const cmd = b.dataset.cmd;
+              if (titles[cmd]) b.title = titles[cmd];
+              b.setAttribute('aria-label', b.title);
+              if (!(cmd in on)) continue;
+              b.setAttribute('aria-pressed', on[cmd]);
+              b.querySelectorAll('path')[1].setAttribute('fill', on[cmd] ? 'rgba(255,255,255,.45)' : 'none');  // the panel, the top window: filled while on
             }
             // For the log: what a panel over the fullscreen video is made of, 2 s after it opens (the title opened an empty
             // one for the user, signed in; signed out it shows the description, 2026-10-10)
@@ -1074,8 +1101,17 @@ sealed class PipForm : Form
     void ToggleOnTop()
     {
         TopMost = state.OnTop = !state.OnTop;
+        PaintOnTop();
         state.Save();
         SendMenuState();
+    }
+
+    // 항상 위 shows on the window's 1px border, red while on (critique, 2026-10-11: its button left the bar while playing).
+    // DWMWA_BORDER_COLOR, Windows 11 (older ones ignore it); DWMWA_COLOR_DEFAULT gives the border back.
+    void PaintOnTop()
+    {
+        int color = state.OnTop ? 0x003300FF : -1;  // COLORREF 0x00BBGGRR: #ff0033
+        Program.Log($"on top {state.OnTop}, border colour hr 0x{DwmSetWindowAttribute(Handle, 34, ref color, 4):X}");  // DWM has no read for it
     }
 
     void ToggleList()
@@ -1705,6 +1741,7 @@ sealed class PipForm : Form
         AppendMenu(menu, 0, IdMonitorFull, "전체화면을 모니터 전체로 (PIP 끔)");
         AppendMenu(menu, 0, IdMusic, "YouTube Music으로 전환");
         AppendMenu(menu, 0, IdList, "볼 목록 열기");
+        PaintOnTop();
     }
 
     protected override void WndProc(ref Message m)
@@ -1793,6 +1830,7 @@ sealed class PipForm : Form
     [DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
     [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hWnd, IntPtr dc, uint flags);
     [DllImport("dwmapi.dll")] static extern int DwmFlush();
+    [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hWnd, int attr, ref int value, int size);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
 }
 
