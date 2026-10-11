@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.42 — 2026-10-11
+
+- In a watch list as short as the PIP beside it, videos are listed as rows (a small thumbnail beside the title), about three to a screen instead of one. A taller list keeps the grid. Ads stay as YouTube draws them.
+- Search results in a narrow watch list are rows too: their titles were squeezed into a sliver beside a large thumbnail.
+- In a short watch list, the search bar slides away while scrolling down and comes back as soon as you scroll up.
+
+**한국어**
+
+- PIP 옆의 볼 목록이 PIP 만큼 낮으면 영상이 작은 썸네일 옆에 제목이 오는 줄 모양으로 나와, 한 화면에 한 개가 아니라 세 개쯤 보임. 목록을 높게 키우면 지금처럼 격자. 광고는 YouTube 가 그린 그대로임.
+- 좁은 볼 목록의 검색 결과도 줄 모양으로 나옴. 큰 썸네일 옆에 제목이 가늘게 끼어 있었음.
+- 낮은 볼 목록에서 아래로 스크롤하면 검색 막대가 숨고, 위로 올리는 즉시 다시 나옴.
+
 ## 0.1.41 — 2026-10-11
 
 - Pausing the PIP no longer shrinks the video with black bars beside it: the title bar grows out above the video instead, and folds away when it plays again.
