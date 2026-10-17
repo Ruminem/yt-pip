@@ -20,8 +20,8 @@ Not affiliated with, endorsed by or sponsored by YouTube or Google.
   resizing keeps the video's shape, and dragging the video moves the window.
 - **Shorts** play in an upright PIP on YouTube's own Shorts page: the mouse wheel goes
   to the next Short, and comments open beside the PIP.
-- **Watch list.** YouTube's home beside the PIP, on whichever side the screen has room
-  for, so the next video starts without leaving the PIP.
+- **Watch list.** YouTube's home in a tall window beside the PIP that moves with it, so
+  the next video starts without leaving the PIP, however small the PIP is.
 - **YouTube ↔ YouTube Music** switch that keeps the track, position and volume.
 - **Always on top**, and fullscreen over the whole monitor.
 - **Back to the big window**: leave YouTube's fullscreen (the button or `Esc`), or the
@@ -92,8 +92,8 @@ YouTube·Google 과 관계없고, 그쪽이 보증하거나 후원하는 것이 
   유지되고, 영상을 끌면 창이 움직임.
 - **Shorts** 는 YouTube 의 Shorts 페이지 그대로 세로 PIP 에서 재생됨. 마우스 휠로 다음
   Shorts 로 넘어가고, 댓글은 PIP 옆에 열림.
-- **볼 목록.** PIP 옆, 화면에 공간이 남은 쪽에 YouTube 홈이 붙어 PIP 를 벗어나지 않고
-  다음 영상을 틀 수 있음.
+- **볼 목록.** PIP 옆에 YouTube 홈을 띄운 세로로 긴 창이 붙어 PIP 를 따라다님. PIP 가
+  작아도 PIP 를 벗어나지 않고 다음 영상을 틀 수 있음.
 - **YouTube ↔ YouTube Music** 전환. 곡·재생 위치·볼륨이 이어짐.
 - **항상 위에 표시**, 그리고 모니터 전체 화면.
 - **큰 창으로 돌아가기**: YouTube 전체화면을 나가거나(버튼 또는 `Esc`), Shorts 에서는

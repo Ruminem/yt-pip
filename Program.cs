@@ -813,11 +813,13 @@ sealed class PipForm : Form
     // 1.8-5.2 s to the video back, 2026-10-10). Made on the first switch, kept after.
     // ponytail: its renderer stays (some 300 MB, not measured); drop it after a while in YouTube if memory matters.
     readonly WebView2 music = new() { Dock = DockStyle.Fill, Visible = false };
-    readonly WebView2 list = new() { Dock = DockStyle.Right, Visible = false };  // "볼 목록" beside the PIP (side set in ShowList)
+    // "볼 목록": in its own window beside the PIP (listWin), in this one beside the video in monitor fullscreen; one view
+    // moved between them, not two (some 350 MB each)
+    readonly WebView2 list = new() { Dock = DockStyle.Right, Visible = false };
+    ListWindow? listWin;
     CoreWebView2Environment? env;
     string? userCss;
     bool listOpen;  // session only, like monitorFull
-    Point listShift;  // how far ShowList slid the video to fit the panel; closing slides it back
     Mode backMode;  // the YouTube side's mode as it was left for Music
     int switches;  // counts switches: one waiting for its side to play knows when another came after it
     (string Asked, string Got)? musicTrack;  // the video last taken to Music, and the id Music plays it under
@@ -867,6 +869,8 @@ sealed class PipForm : Form
         // back from minimized or maximized, as it plays or pauses now; after the resize, not inside a Bounds setter (that
         // took the window back to its old top, the title bar's height too low after it played, 2026-10-11)
         Resize += (_, _) => { if (IsHandleCreated) BeginInvoke(FitTitle); };
+        LocationChanged += (_, _) => FollowList();
+        SizeChanged += (_, _) => FollowList();
     }
 
     async Task InitAsync()
@@ -1108,6 +1112,7 @@ sealed class PipForm : Form
     void ToggleOnTop()
     {
         TopMost = state.OnTop = !state.OnTop;
+        if (listWin != null) listWin.TopMost = TopMost;
         PaintOnTop();
         state.Save();
         SendMenuState();
@@ -1125,49 +1130,82 @@ sealed class PipForm : Form
     {
         listOpen = !listOpen;
         if (listOpen) ShowList();
-        else if (list.Visible && mode == Mode.Monitor) list.Visible = false;  // the window stays the whole monitor
-        else if (list.Visible)
-        {
-            var r = WithoutList(Bounds);
-            r.Offset(-listShift.X, -listShift.Y);
-            var wa = Work;
-            r.X = Math.Clamp(r.X, wa.Left, Math.Max(wa.Left, wa.Right - r.Width));
-            listShift = Point.Empty;
-            // one layout after both, or the video gets the whole wide window for a moment (jumps right and back)
-            SuspendLayout();
-            list.Visible = false;
-            Bounds = r;
-            ResumeLayout();
-        }
+        else HideList();
         SendMenuState();
     }
 
-    // Grows the PIP by the panel so the video keeps its size and place, on whichever side the screen has room
-    // (PlaceList); with no room anywhere it goes right and the video slides left, back when the panel closes.
-    // ponytail: panel size is set when it opens (60% of the video's width, at least 360); resizing the PIP later keeps it.
+    void HideList()
+    {
+        list.Visible = false;
+        listWin?.Hide();
+    }
+
+    // Beside the PIP in its own window, as tall as 2/3 of the screen whatever the PIP's size: in a panel of the PIP's
+    // height a small PIP showed 3-4 videos (user, 2026-10-17). The PIP stays as it is.
+    // ponytail: its size is set when it first opens (60% of the video's width, at least 360); after that the user's.
     void ShowList()
     {
-        if (mode is not (Mode.Pip or Mode.Monitor) || !listOpen || list.Visible) return;
+        if (mode is not (Mode.Pip or Mode.Monitor) || !listOpen) return;
         if (mode == Mode.Monitor)
         {
+            if (list.Parent == this && list.Visible) return;
+            listWin?.Hide();
             // over the whole monitor already: on its right, the video narrowed by it as YouTube's own fullscreen panel does
             list.Dock = DockStyle.Right;
             list.Width = Math.Max(LogicalToDeviceUnits(360), ClientSize.Width / 4);
+            Controls.Add(list);  // last, so docking gives it the right edge first
             list.Visible = true;
             _ = InitListAsync();
             return;
         }
-        int size = Math.Max(LogicalToDeviceUnits(360), ClientSize.Width * 3 / 5);
-        var (dock, bounds) = PlaceList(Bounds, size, Work);
-        list.Dock = dock;
-        if (dock is DockStyle.Left or DockStyle.Right) list.Width = size; else list.Height = size;
-        var before = Location;
-        SuspendLayout();  // as in ToggleList: else the video shrinks to what the panel leaves of the old size first
+        if (listWin?.Visible == true) return;
+        if (listWin == null)
+        {
+            listWin = new ListWindow
+            {
+                Size = new Size(Math.Max(LogicalToDeviceUnits(360), ClientSize.Width * 3 / 5), Screen.FromControl(this).WorkingArea.Height * 2 / 3),
+            };
+            // Alt+F4 on it closes the list, not the window for good
+            listWin.FormClosing += (_, e) => { if (e.CloseReason != CloseReason.UserClosing) return; e.Cancel = true; if (listOpen) ToggleList(); };
+        }
+        if (list.Parent != listWin)
+        {
+            list.Dock = DockStyle.Fill;
+            listWin.Controls.Add(list);
+        }
         list.Visible = true;
-        Bounds = bounds;
-        ResumeLayout();
-        listShift = WithoutList(Bounds).Location - (Size)before;
+        listWin.TopMost = TopMost;
+        listWin.Location = PlaceListWin(Bounds, listWin.Size, Work);
+        listWin.Show(this);  // owned: above the PIP, minimized and closed with it
         _ = InitListAsync();
+    }
+
+    void FollowList()
+    {
+        if (listWin?.Visible == true) listWin.Location = PlaceListWin(Bounds, listWin.Size, Work);
+    }
+
+    // Right of the PIP, else left, else at the screen's right over it; its top at the PIP's, moved up to stay on the screen.
+    internal static Point PlaceListWin(Rectangle pip, Size s, Rectangle work)
+    {
+        int x = pip.Right + s.Width <= work.Right ? pip.Right : pip.Left - s.Width >= work.Left ? pip.Left - s.Width : Math.Max(work.Left, work.Right - s.Width);
+        return new(x, Math.Clamp(pip.Top, work.Top, Math.Max(work.Top, work.Bottom - s.Height)));
+    }
+
+    // A frame to resize it by and no title bar (no text, no control box); shown without taking the keys from the video.
+    sealed class ListWindow : Form
+    {
+        public ListWindow()
+        {
+            FormBorderStyle = FormBorderStyle.SizableToolWindow;
+            ControlBox = false;
+            Text = "";
+            ShowInTaskbar = false;
+            StartPosition = FormStartPosition.Manual;
+            BackColor = Color.FromArgb(24, 24, 24);
+        }
+
+        protected override bool ShowWithoutActivation => true;
     }
 
     // Right, left, below, above (not for comments: beside only): the first side the screen has room for the panel on; else
@@ -1248,9 +1286,8 @@ sealed class PipForm : Form
             // premultiplied: what GDI+ draws fastest, the steps' paint 1-11 ms in 32bppArgb (2026-10-11)
             var shot = morphShot = new Bitmap(ClientSize.Width, ClientSize.Height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
             using (var g = Graphics.FromImage(shot)) { var dc = g.GetHdc(); PrintWindow(Handle, dc, 3); g.ReleaseHdc(dc); }  // client, page included
-            // the video's middle filling the PIP's part, in its shape; the list beside it as it was (docked as the layout
-            // will put it, which is held)
-            Rectangle v0 = web.Bounds, l0 = list.Visible ? list.Bounds : Rectangle.Empty;
+            // the video's middle filling the PIP, in its shape
+            Rectangle v0 = web.Bounds;
             RectangleF Middle(Rectangle to)
             {
                 float a = (float)to.Width / Math.Max(1, to.Height), w = Math.Min(v0.Width, v0.Height * a), h = w / a;
@@ -1259,25 +1296,10 @@ sealed class PipForm : Form
             morphCover = new PictureBox { Bounds = ClientRectangle };
             morphCover.Paint += (_, e) =>
             {
-                var c = morphCover.ClientRectangle;
-                Rectangle l = l0.IsEmpty ? Rectangle.Empty : list.Dock switch
-                {
-                    DockStyle.Left => c with { Width = l0.Width },
-                    DockStyle.Top => c with { Height = l0.Height },
-                    DockStyle.Bottom => Rectangle.FromLTRB(c.Left, c.Bottom - l0.Height, c.Right, c.Bottom),
-                    _ => Rectangle.FromLTRB(c.Right - l0.Width, c.Top, c.Right, c.Bottom),
-                };
-                var v = l.IsEmpty ? c : list.Dock switch
-                {
-                    DockStyle.Left => Rectangle.FromLTRB(l.Right, c.Top, c.Right, c.Bottom),
-                    DockStyle.Top => Rectangle.FromLTRB(c.Left, l.Bottom, c.Right, c.Bottom),
-                    DockStyle.Bottom => Rectangle.FromLTRB(c.Left, c.Top, c.Right, l.Top),
-                    _ => Rectangle.FromLTRB(c.Left, c.Top, l.Left, c.Bottom),
-                };
+                var v = morphCover.ClientRectangle;
                 e.Graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
                 e.Graphics.Clear(BackColor);
                 e.Graphics.DrawImage(shot, v, Middle(v), GraphicsUnit.Pixel);
-                if (!l.IsEmpty) e.Graphics.DrawImage(shot, new Rectangle(l.Location, l0.Size), l0, GraphicsUnit.Pixel);
             };
             Controls.Add(morphCover);
             morphCover.BringToFront();
@@ -1337,17 +1359,6 @@ sealed class PipForm : Form
         "left" => Rectangle.FromLTRB(b.Left + CmtWidth, b.Top, b.Right, b.Bottom),
         "right" => b with { Width = b.Width - CmtWidth },
         _ => b,
-    };
-
-    // The window without the list and the comments: where the video is.
-    Rectangle PipOnly(Rectangle b) => WithoutComments(WithoutList(b));
-
-    Rectangle WithoutList(Rectangle b) => !list.Visible ? b : list.Dock switch
-    {
-        DockStyle.Left => Rectangle.FromLTRB(b.Left + list.Width, b.Top, b.Right, b.Bottom),
-        DockStyle.Top => Rectangle.FromLTRB(b.Left, b.Top + list.Height, b.Right, b.Bottom),
-        DockStyle.Bottom => b with { Height = b.Height - list.Height },
-        _ => b with { Width = b.Width - list.Width },
     };
 
     // Once: from ShowList, or ahead of it after the PIP's fullscreen (the home page takes ~2 s to load).
@@ -1618,7 +1629,7 @@ sealed class PipForm : Form
     void RememberRect()
     {
         // the PIP as it plays: without the title bar it grew by while paused
-        if (mode == Mode.Pip) { var r = TitleRect(PipOnly(Bounds), -grown, pushed, Work.Top).Item1; r.Offset(-listShift.X - cmtShift.X, -listShift.Y - cmtShift.Y); state.PipRect = r; }
+        if (mode == Mode.Pip) { var r = TitleRect(WithoutComments(Bounds), -grown, pushed, Work.Top).Item1; r.Offset(-cmtShift.X, -cmtShift.Y); state.PipRect = r; }
         else if (mode == Mode.Browse) state.BrowseRect = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
     }
 
@@ -1634,9 +1645,8 @@ sealed class PipForm : Form
         if ((next == Mode.Music ? music : web).CoreWebView2 is { } shown) shown.IsMuted = false;  // muted by HandOver
         if (ContainsFocus) (next == Mode.Music ? music : web).Focus();  // the keys (space, arrows) to the side showing
         ShowTitle();
-        list.Visible = false;  // the rects below are without the panel; ShowList adds it back in PIP
+        HideList();  // the rects below are without the panel; ShowList adds it back
         if (next == Mode.Music) listOpen = false;  // not back with the PIP from Music: it opened again with it (2026-10-10)
-        listShift = Point.Empty;
         cmtSide = null;
         cmtPending = null;
         cmtShift = Point.Empty;
@@ -1717,8 +1727,7 @@ sealed class PipForm : Form
         get
         {
             int frame = Width - ClientSize.Width;
-            bool beside = list.Dock is DockStyle.Left or DockStyle.Right;
-            return new(frame + (list.Visible && beside ? list.Width : 0) + (cmtSide != null ? CmtWidth : 0), frame / 2 + grown + (list.Visible && !beside ? list.Height : 0));
+            return new(frame + (cmtSide != null ? CmtWidth : 0), frame / 2 + grown);
         }
     }
 
@@ -1959,6 +1968,11 @@ static class SelfTest
         Check(PipForm.PlaceList(new Rectangle(100, 100, 1700, 300), 360, work) == (DockStyle.Bottom, new Rectangle(100, 100, 1700, 660)), "list below");
         Check(PipForm.PlaceList(new Rectangle(100, 700, 1700, 300), 360, work) == (DockStyle.Top, new Rectangle(100, 340, 1700, 660)), "list above");
         Check(PipForm.PlaceList(new Rectangle(100, 200, 1700, 700), 360, work) == (DockStyle.Right, new Rectangle(0, 200, 2060, 700)), "list slid");
+        // The list's own window: right, else left, else over the PIP at the screen's right; moved up only to stay on the screen.
+        var lw = new Size(360, 693);
+        Check(PipForm.PlaceListWin(new Rectangle(24, 24, 512, 288), lw, work) == new Point(536, 24), "list window right");
+        Check(PipForm.PlaceListWin(new Rectangle(1384, 728, 512, 288), lw, work) == new Point(1024, 1040 - 693), "list window left, up");
+        Check(PipForm.PlaceListWin(new Rectangle(100, 200, 1700, 300), lw, work) == new Point(1920 - 360, 200), "list window over");
         // Comments go beside only: room below is not taken.
         Check(PipForm.PlaceList(new Rectangle(100, 100, 1700, 300), 360, work, besideOnly: true) == (DockStyle.Right, new Rectangle(0, 100, 2060, 300)), "comments beside");
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.46 — 2026-10-17
+
+- The watch list beside the PIP is now its own window, two thirds of the screen tall whatever the PIP's size, so a small PIP no longer leaves room for only three or four videos. It follows the PIP when the PIP moves, the PIP keeps its size, and its edges can be dragged to resize it.
+
+**한국어**
+
+- PIP 옆 볼 목록이 별도 창이 됨. PIP 크기와 상관없이 화면 높이의 2/3 라서 PIP 가 작아도 영상이 서너 개만 보이지 않음. PIP 를 옮기면 따라오고, PIP 크기는 그대로이며, 테두리를 끌어 크기를 바꿀 수 있음.
+
 ## 0.1.45 — 2026-10-17
 
 - With "fullscreen fills the monitor" on, the control bar now has a watch list button too. The list opens on the right side of the screen and the video narrows to make room; picking a video there plays it in the same fullscreen.
