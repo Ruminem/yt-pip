@@ -327,20 +327,23 @@ sealed class PipForm : Form
             if (group && !ctls) ctls = [
               seekButton(-10, 'M12 5A8 8 0 1 1 4 13', 'M14.5 2.5L12 5l2.5 2.5'),                          // a circle's arrow turning back
               seekButton(10, 'M12 5A8 8 0 1 0 20 13', 'M9.5 2.5L12 5 9.5 7.5'),                            // and on
+              ctlButton('list', ...listIcon),
               ctlButton('music', ...musicIcon),
               ctlButton('ontop', ...onTopIcon)];
             if (group && ctls[0].parentNode !== group) group.prepend(...ctls);
             const pip = state.mode === 'pip';
             if (ctls) {
-              const [back, fwd, music, onTop] = ctls;
+              const [back, fwd, list, music, onTop] = ctls;
               back.style.display = fwd.style.display = pip && !document.querySelector('#movie_player.ad-showing') ? 'inline-flex' : 'none';
+              // 볼 목록 in the bar with monitor fullscreen (user, 2026-10-17); in the PIP it is over the video (below)
+              list.style.display = state.mode === 'monitor' ? '' : 'none';
               // YouTube's "동영상 더보기" (^) sits in the middle of the bar, its own buttons laid out to stay clear of it; these
               // widen them, over it in a 600-680px window (user's shot, 2026-10-11). Off one by one till clear, Music first,
               // the seeks last. Its middle by the player's, not its own box: that has no size while the bar is hidden, and a
               // check only once it shows would leave them over it until the next one.
               music.style.display = onTop.style.display = pip ? 'none' : '';  // in the PIP over the video instead (below)
               const p = group && document.fullscreenElement && document.querySelector('#movie_player:has(.ytp-fullscreen-grid-expand-button)')?.getBoundingClientRect();
-              for (const b of [music, onTop, fwd, back])
+              for (const b of [music, onTop, list, fwd, back])
                 if (p && group.getBoundingClientRect().left < p.left + p.width / 2 + 28) b.style.display = 'none';
               back.title = '10초 뒤로';
               fwd.title = '10초 앞으로';
@@ -1096,7 +1099,7 @@ sealed class PipForm : Form
 
     void SendMenuState()
     {
-        var m = mode switch { Mode.Pip => "pip", Mode.Music => "music", _ => "none" };
+        var m = mode switch { Mode.Pip => "pip", Mode.Music => "music", Mode.Monitor => "monitor", _ => "none" };
         var json = JsonSerializer.Serialize(new { mode = m, list = listOpen, onTop = state.OnTop, comments = cmtSide ?? cmtPending?.Side });
         web.CoreWebView2?.PostWebMessageAsJson(json);
         music.CoreWebView2?.PostWebMessageAsJson(json);
@@ -1122,6 +1125,7 @@ sealed class PipForm : Form
     {
         listOpen = !listOpen;
         if (listOpen) ShowList();
+        else if (list.Visible && mode == Mode.Monitor) list.Visible = false;  // the window stays the whole monitor
         else if (list.Visible)
         {
             var r = WithoutList(Bounds);
@@ -1143,7 +1147,16 @@ sealed class PipForm : Form
     // ponytail: panel size is set when it opens (60% of the video's width, at least 360); resizing the PIP later keeps it.
     void ShowList()
     {
-        if (mode != Mode.Pip || !listOpen || list.Visible) return;
+        if (mode is not (Mode.Pip or Mode.Monitor) || !listOpen || list.Visible) return;
+        if (mode == Mode.Monitor)
+        {
+            // over the whole monitor already: on its right, the video narrowed by it as YouTube's own fullscreen panel does
+            list.Dock = DockStyle.Right;
+            list.Width = Math.Max(LogicalToDeviceUnits(360), ClientSize.Width / 4);
+            list.Visible = true;
+            _ = InitListAsync();
+            return;
+        }
         int size = Math.Max(LogicalToDeviceUnits(360), ClientSize.Width * 3 / 5);
         var (dock, bounds) = PlaceList(Bounds, size, Work);
         list.Dock = dock;
@@ -1353,7 +1366,7 @@ sealed class PipForm : Form
             else if (msg?.Split(':') is ["playlist", var pl, var vid])
             {
                 // already playing from it: going to the playlist is not "play it from the start" (2026-10-10)
-                if (mode == Mode.Pip && Program.WatchParam(web.CoreWebView2.Source, "list") == pl) Program.Log($"list playlist {pl}: playing it already");
+                if (mode is Mode.Pip or Mode.Monitor && Program.WatchParam(web.CoreWebView2.Source, "list") == pl) Program.Log($"list playlist {pl}: playing it already");
                 else await PlayFromListAsync($"https://www.youtube.com/watch?v={vid}&list={pl}");
             }
             else await PlayFromListAsync(msg);
@@ -1449,7 +1462,8 @@ sealed class PipForm : Form
         }
         bool fromShorts = OnShorts;
         var id = Program.VideoId(url);
-        if (mode != Mode.Pip || id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[A-Za-z0-9_-]+$")) return;
+        // ponytail: in monitor fullscreen watch videos only; a Short drops fullscreen there and is left alone (the guards above)
+        if (mode is not (Mode.Pip or Mode.Monitor) || id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[A-Za-z0-9_-]+$")) return;
         var list = Program.WatchParam(url, "list") is { } l && System.Text.RegularExpressions.Regex.IsMatch(l, "^[A-Za-z0-9_-]+$") ? l : null;
         int index = int.TryParse(Program.WatchParam(url, "index"), out var i) && i > 0 && list != null ? i : 0;
         var inPage = await EvalAsync(InPageWatchJs.Replace("$ID", JsonSerializer.Serialize(id))
@@ -1642,6 +1656,7 @@ sealed class PipForm : Form
         // the video (2026-10-10). Telling the taskbar, as Chromium does, sends it behind while this window is active.
         Taskbar.MarkFullscreenWindow(Handle, next == Mode.Monitor);
         if (next == Mode.Pip) { ShowList(); FitAspect(); FitTitle(); }
+        if (next == Mode.Monitor) ShowList();
         SendMenuState();
     }
 
@@ -1776,8 +1791,8 @@ sealed class PipForm : Form
                 CheckMenuItem(menu, IdOnTop, state.OnTop ? MF_CHECKED : 0);
                 CheckMenuItem(menu, IdMonitorFull, monitorFull ? MF_CHECKED : 0);
                 ModifyMenu(menu, IdMusic, 0, IdMusic, mode == Mode.Music ? "YouTube로 전환" : "YouTube Music으로 전환");
-                // the list sits beside the PIP only (never in Music)
-                ModifyMenu(menu, IdList, mode == Mode.Pip ? 0 : MF_GRAYED, IdList, listOpen ? "볼 목록 닫기" : "볼 목록 열기");
+                // the list sits beside the PIP or in monitor fullscreen only (never in Music)
+                ModifyMenu(menu, IdList, mode is Mode.Pip or Mode.Monitor ? 0 : MF_GRAYED, IdList, listOpen ? "볼 목록 닫기" : "볼 목록 열기");
                 break;
             }
             case WM_SYSCOMMAND when ((int)m.WParam & 0xFFF0) == IdList:

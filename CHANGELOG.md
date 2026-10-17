@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.45 — 2026-10-17
+
+- With "fullscreen fills the monitor" on, the control bar now has a watch list button too. The list opens on the right side of the screen and the video narrows to make room; picking a video there plays it in the same fullscreen.
+
+**한국어**
+
+- "전체화면을 모니터 전체로"를 켠 전체화면에서도 컨트롤 바에 볼 목록 버튼이 나옴. 목록은 화면 오른쪽에 열리고 영상은 그만큼 좁아짐. 목록에서 영상을 고르면 같은 전체화면에서 재생됨.
+
 ## 0.1.44 — 2026-10-11
 
 - Picking a video in the watch list by its views, date or the blank part of its row now plays it straight in the PIP. Before, it started playing inside the watch list for a moment and then moved to the PIP.
