@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.47 — 2026-10-19
+
+- In monitor fullscreen, a Short picked from the watch list now opens in its own window over the video, which pauses. Closing the window plays the video on, if the window was what paused it. The window has Windows 11's dark title bar.
+- Esc no longer drops the small PIP back to the big window. With the watch list open, Esc closes the list, in the PIP and in monitor fullscreen alike; otherwise Esc still leaves monitor fullscreen.
+- The window menu item "전체화면을 모니터 전체로 (PIP 끔)" is now a plain "PIP 모드", checked while fullscreen is the small PIP.
+
+**한국어**
+
+- 모니터 전체화면에서 볼 목록의 쇼츠를 누르면 영상은 일시정지되고 쇼츠가 그 위에 별도 창으로 뜸. 창이 영상을 멈췄던 경우에만 창을 닫으면 영상이 이어서 재생됨. 창 제목줄은 Windows 11 다크 제목줄임.
+- Esc 를 눌러도 작은 PIP 가 큰 창으로 풀리지 않음. 볼 목록이 열려 있으면 PIP 든 모니터 전체화면이든 Esc 로 목록이 닫힘. 목록이 없으면 모니터 전체화면은 전처럼 Esc 로 나감.
+- 창 메뉴의 "전체화면을 모니터 전체로 (PIP 끔)"이 "PIP 모드"로 바뀜. 전체화면이 작은 PIP 일 때 체크됨.
+
 ## 0.1.46 — 2026-10-17
 
 - The watch list beside the PIP is now its own window, two thirds of the screen tall whatever the PIP's size, so a small PIP no longer leaves room for only three or four videos. It follows the PIP when the PIP moves, the PIP keeps its size, and its edges can be dragged to resize it.
