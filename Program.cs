@@ -1452,10 +1452,39 @@ sealed class PipForm : Form
         })
         """;
 
+    // In monitor fullscreen a Short from the list: the video paused, the Short in a window of its own over it (user,
+    // 2026-10-19; going PIP for it would leave fullscreen). The Shorts page as YouTube lays it out. Closed, its view goes
+    // (some 300 MB) and the video stays paused, as asked; space plays it on.
+    WebView2? shortsView;
+
+    async Task ShowShortsWinAsync(string url)
+    {
+        Program.Log($"from list {url}: shorts window");
+        _ = EvalAsync(PauseJs);
+        if (shortsView is { CoreWebView2: { } c } open) { c.Navigate(url); open.FindForm()?.Activate(); return; }
+        if (shortsView != null) return;  // still opening
+        var scr = Screen.FromControl(this).Bounds;
+        int h = scr.Height * 85 / 100, w = h * 9 / 16;
+        var view = shortsView = new WebView2 { Dock = DockStyle.Fill };
+        var win = new Form
+        {
+            Text = "Shorts", FormBorderStyle = FormBorderStyle.SizableToolWindow, ShowInTaskbar = false, BackColor = BackColor,
+            StartPosition = FormStartPosition.Manual, Bounds = new(scr.Left + (scr.Width - w) / 2, scr.Top + (scr.Height - h) / 2, w, h),
+        };
+        win.Controls.Add(view);
+        win.FormClosed += (_, _) => { shortsView = null; win.Dispose(); };
+        win.Show(this);  // owned: over the fullscreen window
+        await view.EnsureCoreWebView2Async(env);
+        if (view.IsDisposed) return;  // closed while it opened
+        await SetUpAsync(view.CoreWebView2);
+        view.CoreWebView2.Navigate(url);
+    }
+
     async Task PlayFromListAsync(string? url)
     {
         if (Program.ShortsId(url) is { } sid)
         {
+            if (mode == Mode.Monitor) { await ShowShortsWinAsync($"https://www.youtube.com/shorts/{sid}"); return; }
             if (mode != Mode.Pip) return;
             retrying = true;  // keeps the PIP while the watch page leaves fullscreen; SourceChanged clears it
             var r = await EvalAsync(InPageShortsJs.Replace("$ID", JsonSerializer.Serialize(sid)));
@@ -1465,6 +1494,7 @@ sealed class PipForm : Form
         }
         if (url == "https://www.youtube.com/shorts/")  // the Shorts feed (≡'s entry): YouTube picks the first one
         {
+            if (mode == Mode.Monitor) { await ShowShortsWinAsync(url); return; }
             if (mode != Mode.Pip) return;
             retrying = true;
             Program.Log("from list shorts feed");
@@ -1473,7 +1503,6 @@ sealed class PipForm : Form
         }
         bool fromShorts = OnShorts;
         var id = Program.VideoId(url);
-        // ponytail: in monitor fullscreen watch videos only; a Short drops fullscreen there and is left alone (the guards above)
         if (mode is not (Mode.Pip or Mode.Monitor) || id == null || !System.Text.RegularExpressions.Regex.IsMatch(id, "^[A-Za-z0-9_-]+$")) return;
         var list = Program.WatchParam(url, "list") is { } l && System.Text.RegularExpressions.Regex.IsMatch(l, "^[A-Za-z0-9_-]+$") ? l : null;
         int index = int.TryParse(Program.WatchParam(url, "index"), out var i) && i > 0 && list != null ? i : 0;
