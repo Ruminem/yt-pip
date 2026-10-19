@@ -226,6 +226,16 @@ sealed class PipForm : Form
                 document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
             });
           }, true);
+          // Esc drops the browser's fullscreen, which in the small PIP is the PIP itself: keyboard.lock hands Esc to the
+          // page instead (held down it still leaves, Chromium's own way out), and the host does what it means: closes the
+          // list, or leaves monitor fullscreen as before (2026-10-19, asked for). Blocking it in the host's KeyDown
+          // stopped a posted WM_KEYDOWN but not a real key.
+          document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) navigator.keyboard?.lock(['Escape']).catch(() => {});
+          });
+          addEventListener('keydown', e => {
+            if (e.key === 'Escape' && e.isTrusted && !e.repeat && document.fullscreenElement) chrome.webview.postMessage('esc');
+          }, true);
         })();
         """;
 
@@ -479,6 +489,7 @@ sealed class PipForm : Form
     // In the list panel: a picked video plays in the PIP instead of opening in the panel. One picked in a
     // playlist plays on through it there, and the panel shows that playlist.
     const string ListJs = """
+        addEventListener('keydown', e => { if (e.key === 'Escape' && e.isTrusted) chrome.webview.postMessage('close'); }, true);
         // ≡'s "Shorts" has no link, only YouTube's endpoint (/shorts/, 2026-10-10), and opened in the panel: into the PIP
         // too. Before YouTube's own handler on the entry.
         addEventListener('click', e => {
@@ -838,7 +849,6 @@ sealed class PipForm : Form
     double aspect = 16.0 / 9;  // width / height of the video playing, from the page
 
     bool wasShorts;  // the last address was a Shorts page: moving on to the next Short leaves the window as it is
-    bool fullscreen;  // the page's, as the last ContainsFullScreenElementChanged said
     bool OnShorts =>Program.ShortsId(web.CoreWebView2?.Source) != null;
     double Aspect => OnShorts ? 9.0 / 16 : aspect;  // the Shorts page lays its video out 9:16 whatever the video's shape
 
@@ -882,11 +892,6 @@ sealed class PipForm : Form
             new CoreWebView2EnvironmentOptions("--autoplay-policy=no-user-gesture-required"));
         await web.EnsureCoreWebView2Async(env);
         var core = web.CoreWebView2;
-        // Esc drops the browser's fullscreen, which in the small PIP is the PIP itself: keep it there. YouTube's own
-        // fullscreen button, double-click and the big-window button still leave (2026-10-19, asked for).
-        // The Shorts PIP is no fullscreen: Esc stays the page's there. The handler blocks the browser, so it reads a field:
-        // reading core.ContainsFullScreenElement in it let Esc through.
-        web.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape && mode == Mode.Pip && fullscreen) e.Handled = true; };
         // The user's own CSS for the pages (user.css in the data folder), read at start: what else to hide is theirs to
         // choose, not the app's (CLAUDE.md, YouTube 정책).
         try
@@ -903,6 +908,10 @@ sealed class PipForm : Form
             {
                 case "drag": if (pip) StartDrag(); return;
                 case "menu:list": ToggleList(); return;
+                case "esc":  // in fullscreen, kept from the browser (DragJs)
+                    if (listOpen) ToggleList();
+                    else if (mode == Mode.Monitor) _ = EvalAsync("document.exitFullscreen()");
+                    return;
                 case "menu:music": await ToggleMusicAsync(); return;
                 case "menu:ontop": ToggleOnTop(); return;
                 case "menu:browse": if (pip && OnShorts) SetMode(Mode.Browse); return;  // as leaving fullscreen does on a watch page
@@ -929,8 +938,7 @@ sealed class PipForm : Form
         };
         core.ContainsFullScreenElementChanged += (_, _) =>
         {
-            fullscreen = core.ContainsFullScreenElement;
-            Program.Log($"fullscreen changed: {fullscreen}");
+            Program.Log($"fullscreen changed: {core.ContainsFullScreenElement}");
             // The Shorts page's own fullscreen (a hidden button, double-click) is not the Shorts PIP, which is the page as
             // it is: drop it, going PIP from the big window as a watch page does. Left on, '큰 창으로' brought the page's
             // fullscreen into the big window (2026-10-10). Leaving a watch page for a Short drops fullscreen too: no change.
