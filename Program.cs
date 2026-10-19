@@ -918,6 +918,7 @@ sealed class PipForm : Form
                 }
             }
             playing = msg == "playing";
+            if (playing && shortsView != null) resumeAfterShorts = false;  // played by the user beside the Short: theirs now
             FitTitle();
         };
         core.ContainsFullScreenElementChanged += (_, _) =>
@@ -1454,29 +1455,48 @@ sealed class PipForm : Form
 
     // In monitor fullscreen a Short from the list: the video paused, the Short in a window of its own over it (user,
     // 2026-10-19; going PIP for it would leave fullscreen). The Shorts page as YouTube lays it out. Closed, its view goes
-    // (some 300 MB) and the video stays paused, as asked; space plays it on.
+    // (some 300 MB) and the video plays on if it was this window that paused it (user, 2026-10-19): not if the user
+    // played it meanwhile and paused it again.
     WebView2? shortsView;
+    bool resumeAfterShorts;
 
     async Task ShowShortsWinAsync(string url)
     {
-        Program.Log($"from list {url}: shorts window");
-        _ = EvalAsync(PauseJs);
+        if (await EvalAsync("!(document.querySelector('#movie_player video')?.paused ?? true)") is { ValueKind: JsonValueKind.True })
+        {
+            resumeAfterShorts = true;
+            _ = EvalAsync(PauseJs);
+        }
+        Program.Log($"from list {url}: shorts window, resume after {resumeAfterShorts}");
         if (shortsView is { CoreWebView2: { } c } open) { c.Navigate(url); open.FindForm()?.Activate(); return; }
         if (shortsView != null) return;  // still opening
         var scr = Screen.FromControl(this).Bounds;
         int h = scr.Height * 85 / 100, w = h * 9 / 16;
         var view = shortsView = new WebView2 { Dock = DockStyle.Fill };
+        // Windows 11's own title bar, dark in YouTube's #0f0f0f: the tool window's small one squeezed its X (user, 2026-10-19)
         var win = new Form
         {
-            Text = "Shorts", FormBorderStyle = FormBorderStyle.SizableToolWindow, ShowInTaskbar = false, BackColor = BackColor,
+            Text = "Shorts", ShowIcon = false, MinimizeBox = false, MaximizeBox = false, ShowInTaskbar = false, BackColor = Color.FromArgb(15, 15, 15),
             StartPosition = FormStartPosition.Manual, Bounds = new(scr.Left + (scr.Width - w) / 2, scr.Top + (scr.Height - h) / 2, w, h),
         };
+        int dark = 1, caption = 0x0F0F0F;  // DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_CAPTION_COLOR (COLORREF)
+        DwmSetWindowAttribute(win.Handle, 20, ref dark, 4);
+        DwmSetWindowAttribute(win.Handle, 35, ref caption, 4);
         win.Controls.Add(view);
-        win.FormClosed += (_, _) => { shortsView = null; win.Dispose(); };
+        win.FormClosed += (_, _) =>
+        {
+            shortsView = null;
+            win.Dispose();
+            if (!resumeAfterShorts) return;
+            resumeAfterShorts = false;
+            Program.Log("shorts window closed: video plays on");
+            _ = EvalAsync("document.querySelector('#movie_player')?.playVideo()");
+        };
         win.Show(this);  // owned: over the fullscreen window
         await view.EnsureCoreWebView2Async(env);
         if (view.IsDisposed) return;  // closed while it opened
         await SetUpAsync(view.CoreWebView2);
+        view.CoreWebView2.DocumentTitleChanged += (_, _) => win.Text = view.CoreWebView2.DocumentTitle;
         view.CoreWebView2.Navigate(url);
     }
 
