@@ -838,7 +838,8 @@ sealed class PipForm : Form
     double aspect = 16.0 / 9;  // width / height of the video playing, from the page
 
     bool wasShorts;  // the last address was a Shorts page: moving on to the next Short leaves the window as it is
-    bool OnShorts => Program.ShortsId(web.CoreWebView2?.Source) != null;
+    bool fullscreen;  // the page's, as the last ContainsFullScreenElementChanged said
+    bool OnShorts =>Program.ShortsId(web.CoreWebView2?.Source) != null;
     double Aspect => OnShorts ? 9.0 / 16 : aspect;  // the Shorts page lays its video out 9:16 whatever the video's shape
 
     bool TitleHidden => pip && grown == 0;
@@ -881,6 +882,11 @@ sealed class PipForm : Form
             new CoreWebView2EnvironmentOptions("--autoplay-policy=no-user-gesture-required"));
         await web.EnsureCoreWebView2Async(env);
         var core = web.CoreWebView2;
+        // Esc drops the browser's fullscreen, which in the small PIP is the PIP itself: keep it there. YouTube's own
+        // fullscreen button, double-click and the big-window button still leave (2026-10-19, asked for).
+        // The Shorts PIP is no fullscreen: Esc stays the page's there. The handler blocks the browser, so it reads a field:
+        // reading core.ContainsFullScreenElement in it let Esc through.
+        web.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape && mode == Mode.Pip && fullscreen) e.Handled = true; };
         // The user's own CSS for the pages (user.css in the data folder), read at start: what else to hide is theirs to
         // choose, not the app's (CLAUDE.md, YouTube 정책).
         try
@@ -923,7 +929,8 @@ sealed class PipForm : Form
         };
         core.ContainsFullScreenElementChanged += (_, _) =>
         {
-            Program.Log($"fullscreen changed: {core.ContainsFullScreenElement}");
+            fullscreen = core.ContainsFullScreenElement;
+            Program.Log($"fullscreen changed: {fullscreen}");
             // The Shorts page's own fullscreen (a hidden button, double-click) is not the Shorts PIP, which is the page as
             // it is: drop it, going PIP from the big window as a watch page does. Left on, '큰 창으로' brought the page's
             // fullscreen into the big window (2026-10-10). Leaving a watch page for a Short drops fullscreen too: no change.
@@ -1815,7 +1822,7 @@ sealed class PipForm : Form
         var menu = GetSystemMenu(Handle, false);
         AppendMenu(menu, MF_SEPARATOR, 0, null);
         AppendMenu(menu, 0, IdOnTop, "항상 위에 표시");
-        AppendMenu(menu, 0, IdMonitorFull, "전체화면을 모니터 전체로 (PIP 끔)");
+        AppendMenu(menu, 0, IdMonitorFull, "PIP 모드");  // checked: fullscreen is the small PIP; off: it fills the monitor
         AppendMenu(menu, 0, IdMusic, "YouTube Music으로 전환");
         AppendMenu(menu, 0, IdList, "볼 목록 열기");
         PaintOnTop();
@@ -1847,7 +1854,7 @@ sealed class PipForm : Form
             {
                 var menu = GetSystemMenu(Handle, false);
                 CheckMenuItem(menu, IdOnTop, state.OnTop ? MF_CHECKED : 0);
-                CheckMenuItem(menu, IdMonitorFull, monitorFull ? MF_CHECKED : 0);
+                CheckMenuItem(menu, IdMonitorFull, monitorFull ? 0 : MF_CHECKED);
                 ModifyMenu(menu, IdMusic, 0, IdMusic, mode == Mode.Music ? "YouTube로 전환" : "YouTube Music으로 전환");
                 // the list sits beside the PIP or in monitor fullscreen only (never in Music)
                 ModifyMenu(menu, IdList, mode is Mode.Pip or Mode.Monitor ? 0 : MF_GRAYED, IdList, listOpen ? "볼 목록 닫기" : "볼 목록 열기");
